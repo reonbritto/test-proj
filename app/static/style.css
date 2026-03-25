@@ -411,20 +411,6 @@ a:hover { text-decoration: underline; }
     border: 1px solid #e5e7eb;
 }
 
-.vendor-badge {
-    display: inline-flex;
-    align-items: center;
-    padding: 0.1rem 0.45rem;
-    border-radius: 4px;
-    font-size: 0.68rem;
-    font-weight: 500;
-    background: var(--green-light);
-    color: var(--green-dark);
-    max-width: 120px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
 
 /* ═══════════════ SEVERITY CLASSES ═══════════════ */
 .severity-critical { color: var(--severity-critical); }
@@ -821,15 +807,6 @@ a:hover { text-decoration: underline; }
     font-size: 0.88rem;
 }
 
-/* ═══════════════ CARDS (generic) ═══════════════ */
-.card {
-    background: var(--bg-card);
-    border: 1px solid var(--border-color);
-    border-radius: var(--radius);
-    padding: 1rem;
-    transition: border-color 0.15s;
-}
-.card:hover { border-color: var(--border-hover); }
 .card-clickable { cursor: pointer; }
 
 /* ═══════════════ FOOTER ═══════════════ */
