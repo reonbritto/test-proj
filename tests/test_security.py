@@ -101,7 +101,9 @@ class TestValidationEdgeCases:
 
     def test_cwe_id_zero(self):
         """CWE ID 0 is not valid in the CWE catalogue."""
-        assert validate_cwe_id("0") == "0"  # passes regex, app handles
+        with pytest.raises(HTTPException) as exc:
+            validate_cwe_id("0")
+        assert exc.value.status_code == 400
 
     def test_cwe_id_negative(self):
         with pytest.raises(HTTPException):

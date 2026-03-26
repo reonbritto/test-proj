@@ -20,9 +20,9 @@ def unauth_client():
 
 
 class TestAuthRejection:
-    def test_missing_auth_header_returns_403(self, unauth_client):
+    def test_missing_auth_header_returns_401(self, unauth_client):
         resp = unauth_client.get("/api/cwe")
-        assert resp.status_code == 403
+        assert resp.status_code == 401
 
     def test_malformed_bearer_token_returns_401(self, unauth_client):
         resp = unauth_client.get(

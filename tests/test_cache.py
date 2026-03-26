@@ -1,5 +1,4 @@
 """Tests for SQLite cache layer — storage, retrieval, TTL, and SQL safety."""
-import json
 import os
 import tempfile
 from datetime import datetime, timedelta, timezone
