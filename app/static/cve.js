@@ -1,4 +1,4 @@
-document.addEventListener('DOMContentLoaded', () => {
+(function () {
     const cveId = getParam('id');
     if (!cveId) {
         showError('No CVE ID provided. Use ?id=CVE-YYYY-NNNNN');
@@ -11,7 +11,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     loadCVE(cveId.toUpperCase());
-});
+})();
 
 async function loadCVE(cveId) {
     const loading = document.getElementById('loading');

@@ -1,7 +1,6 @@
-document.addEventListener('DOMContentLoaded', () => {
+(function () {
     const searchInput = document.getElementById('searchInput');
     const searchBtn = document.getElementById('searchBtn');
-    const severityFilter = document.getElementById('severityFilter');
     const resultsDiv = document.getElementById('results');
     const loadingDiv = document.getElementById('loading');
     const paginationDiv = document.getElementById('pagination');
@@ -10,7 +9,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const suggestionsDiv = document.getElementById('suggestions');
 
     let currentOffset = 0;
-    const PAGE_SIZE = 20;
+    const PAGE_SIZE = 50;
     let debounceTimer = null;
 
     // Pre-fill from URL params
@@ -25,22 +24,11 @@ document.addEventListener('DOMContentLoaded', () => {
         performSearch();
     });
 
-    // Auto-search when severity filter changes
-    severityFilter.addEventListener('change', () => {
-        currentOffset = 0;
-        performSearch();
-    });
-
     searchInput.addEventListener('keypress', (e) => {
         if (e.key === 'Enter') {
             currentOffset = 0;
             suggestionsDiv.classList.remove('active');
-            const q = searchInput.value.trim();
-            if (/^CVE-\d{4}-\d{4,}$/i.test(q)) {
-                goToCVE(q.toUpperCase());
-            } else {
-                performSearch();
-            }
+            performSearch();
         }
     });
 
@@ -64,7 +52,7 @@ document.addEventListener('DOMContentLoaded', () => {
     async function fetchSuggestions(q) {
         try {
             const data = await fetchAPI(
-                `/api/cve/suggestions?q=${encodeURIComponent(q)}`
+                `/api/cwe/suggestions?q=${encodeURIComponent(q)}`
             );
             if (data.length === 0) {
                 suggestionsDiv.classList.remove('active');
@@ -79,9 +67,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function performSearch() {
         const keyword = searchInput.value.trim();
-        const severity = severityFilter.value;
 
-        if (!keyword && !severity) return;
+        if (!keyword) return;
+
+        // Clean up query: strip "CWE-" prefix for ID-based search
+        let query = keyword;
+        const cweMatch = keyword.match(/^CWE-?(\d+)$/i);
+        if (cweMatch) {
+            query = cweMatch[1];
+        }
 
         recommendationsDiv.style.display = 'none';
         loadingDiv.classList.remove('hidden');
@@ -90,22 +84,15 @@ document.addEventListener('DOMContentLoaded', () => {
         resultsHeader.style.display = 'none';
 
         try {
-            let url = `/api/cve/search?limit=${PAGE_SIZE}` +
-                      `&offset=${currentOffset}`;
-            if (keyword) {
-                url += `&keyword=${encodeURIComponent(keyword)}`;
-            }
-            if (severity) {
-                url += `&severity=${encodeURIComponent(severity)}`;
-            }
+            const url = `/api/cwe?limit=${PAGE_SIZE}` +
+                        `&query=${encodeURIComponent(query)}`;
 
             const data = await fetchAPI(url);
             displayResults(data);
         } catch (err) {
             resultsDiv.innerHTML = `<div class="empty-state">
                 <p>Search failed: ${escapeHTML(err.message)}</p>
-                <p class="subtext">The NVD API may be rate-limited.
-                Please wait a moment and try again.</p>
+                <p class="subtext">Please try again.</p>
             </div>`;
         } finally {
             loadingDiv.classList.add('hidden');
@@ -115,50 +102,19 @@ document.addEventListener('DOMContentLoaded', () => {
     function displayResults(data) {
         if (data.length === 0) {
             resultsDiv.innerHTML = `<div class="empty-state">
-                <p>No vulnerabilities found matching your criteria.</p>
-                <p class="subtext">Try different keywords or broaden
-                your filters.</p>
+                <p>No weaknesses found matching your criteria.</p>
+                <p class="subtext">Try different keywords or browse
+                the categories above.</p>
             </div>`;
             return;
         }
 
         resultsHeader.style.display = 'block';
         document.getElementById('resultsCount').textContent =
-            `Showing ${currentOffset + 1}\u2013${currentOffset + data.length} results`;
+            `Showing ${data.length} results`;
 
-        data.forEach((cve, index) => {
-            resultsDiv.appendChild(createCVECard(cve, index));
+        data.forEach((cwe, index) => {
+            resultsDiv.appendChild(createCWECard(cwe, index));
         });
-
-        // Pagination
-        if (data.length >= PAGE_SIZE || currentOffset > 0) {
-            let pHtml = '';
-            if (currentOffset > 0) {
-                pHtml += '<button id="prevPage">&larr; Previous</button>';
-            }
-            if (data.length >= PAGE_SIZE) {
-                pHtml += '<button id="nextPage">Next &rarr;</button>';
-            }
-            paginationDiv.innerHTML = pHtml;
-
-            const prevBtn = document.getElementById('prevPage');
-            const nextBtn = document.getElementById('nextPage');
-            if (prevBtn) {
-                prevBtn.addEventListener('click', () => {
-                    currentOffset = Math.max(
-                        0, currentOffset - PAGE_SIZE
-                    );
-                    performSearch();
-                    window.scrollTo({ top: 0, behavior: 'smooth' });
-                });
-            }
-            if (nextBtn) {
-                nextBtn.addEventListener('click', () => {
-                    currentOffset += PAGE_SIZE;
-                    performSearch();
-                    window.scrollTo({ top: 0, behavior: 'smooth' });
-                });
-            }
-        }
     }
-});
+})();

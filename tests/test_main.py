@@ -1,10 +1,28 @@
 """Tests for FastAPI application endpoints."""
+import pytest
 from unittest.mock import patch, AsyncMock
 from fastapi.testclient import TestClient
 from app.main import app
+from app.auth import get_current_user
 from app.models import CVEDetail, CVSSScores
 
-client = TestClient(app)
+
+# Override auth dependency for all tests — return a fake user
+MOCK_USER = {"sub": "test-user", "name": "Test User"}
+
+
+async def _mock_user():
+    return MOCK_USER
+
+
+app.dependency_overrides[get_current_user] = _mock_user
+
+
+@pytest.fixture(scope="module")
+def client():
+    """Create test client that triggers startup events."""
+    with TestClient(app) as c:
+        yield c
 
 
 MOCK_CVE = CVEDetail(
@@ -25,10 +43,10 @@ MOCK_CVE = CVEDetail(
 )
 
 
-class TestCVEEndpoints:
+class TestCVEEndpoint:
     @patch("app.main.get_cve", new_callable=AsyncMock,
            return_value=MOCK_CVE)
-    def test_get_cve_success(self, mock_get):
+    def test_get_cve_success(self, mock_get, client):
         response = client.get("/api/cve/CVE-2021-44228")
         assert response.status_code == 200
         data = response.json()
@@ -37,44 +55,65 @@ class TestCVEEndpoints:
 
     @patch("app.main.get_cve", new_callable=AsyncMock,
            return_value=None)
-    def test_get_cve_not_found(self, mock_get):
+    def test_get_cve_not_found(self, mock_get, client):
         response = client.get("/api/cve/CVE-9999-99999")
         assert response.status_code == 404
 
-    def test_get_cve_invalid_format(self):
+    def test_get_cve_invalid_format(self, client):
         response = client.get("/api/cve/invalid-id")
-        assert response.status_code == 400
-
-    def test_get_cve_sql_injection(self):
-        response = client.get("/api/cve/'; DROP TABLE--")
         assert response.status_code == 400
 
 
 class TestCWEEndpoints:
-    def test_search_cwes_no_query(self):
+    def test_search_cwes_no_query(self, client):
         response = client.get("/api/cwe")
         assert response.status_code == 200
-        assert isinstance(response.json(), list)
+        data = response.json()
+        assert isinstance(data, list)
+        assert len(data) > 0
 
-    def test_get_cwe_invalid_id(self):
+    def test_search_cwes_by_keyword(self, client):
+        response = client.get("/api/cwe?query=injection")
+        assert response.status_code == 200
+        data = response.json()
+        assert isinstance(data, list)
+
+    def test_cwe_suggestions(self, client):
+        response = client.get("/api/cwe/suggestions?q=injection")
+        assert response.status_code == 200
+        data = response.json()
+        assert isinstance(data, list)
+        assert len(data) > 0
+
+    def test_cwe_suggestions_by_id(self, client):
+        response = client.get("/api/cwe/suggestions?q=79")
+        assert response.status_code == 200
+        data = response.json()
+        assert isinstance(data, list)
+        assert any("CWE-79" in item.get("text", "")
+                   for item in data)
+
+    def test_get_cwe_invalid_id(self, client):
         response = client.get("/api/cwe/abc")
         assert response.status_code == 400
 
 
 class TestAnalyticsEndpoints:
-    def test_severity_distribution(self):
-        response = client.get("/api/analytics/severity")
-        assert response.status_code == 200
-        data = response.json()
-        assert "critical" in data
-        assert "high" in data
-
-    def test_top_cwes(self):
+    def test_top_cwes(self, client):
         response = client.get("/api/analytics/top-cwes")
         assert response.status_code == 200
         assert isinstance(response.json(), list)
 
-    def test_trends(self):
-        response = client.get("/api/analytics/trends")
+    def test_cwe_risk_scores(self, client):
+        response = client.get("/api/analytics/cwe-risk")
         assert response.status_code == 200
         assert isinstance(response.json(), list)
+
+
+class TestPublicEndpoints:
+    def test_config_endpoint(self, client):
+        response = client.get("/api/config")
+        assert response.status_code == 200
+        data = response.json()
+        assert "client_id" in data
+        assert "tenant_id" in data

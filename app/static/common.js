@@ -1,6 +1,6 @@
 /**
- * Shared utilities for PureSecure CVE Explorer.
- * XSS prevention, fetch wrappers, and UI helpers.
+ * Shared utilities for PureSecure CWE Explorer.
+ * XSS prevention, authenticated fetch wrappers, and UI helpers.
  */
 
 // Prevent XSS by escaping HTML special characters
@@ -11,9 +11,20 @@ function escapeHTML(str) {
     return temp.innerHTML;
 }
 
-// Wrapper around fetch with error handling
+// Authenticated wrapper around fetch — attaches Entra ID Bearer token
 async function fetchAPI(url) {
-    const response = await fetch(url);
+    const token = await getToken();
+    if (!token) return null;  // login redirect in progress
+
+    const response = await fetch(url, {
+        headers: { "Authorization": "Bearer " + token }
+    });
+
+    if (response.status === 401) {
+        // Token expired or invalid — redirect to login
+        window.location.href = "/login.html";
+        return null;
+    }
     if (!response.ok) {
         const err = await response.json().catch(() => ({}));
         throw new Error(err.detail || `API error: ${response.status}`);
@@ -88,31 +99,76 @@ function renderSuggestions(data) {
     }).join('');
 }
 
-// Create a CVE card element
-function createCVECard(cve, index) {
+// Create a CWE card element for the homepage and search results
+function createCWECard(cwe, index) {
     const card = document.createElement('div');
-    card.className = 'cve-card';
+    card.className = 'cwe-card';
     card.style.animationDelay = `${index * 0.03}s`;
 
-    const sevClass = severityClass(cve.severity);
-    const badge = cve.cvss_v3 !== null && cve.cvss_v3 !== undefined
-        ? severityBadge(cve.cvss_v3, cve.severity)
-        : '<span class="badge severity-unknown">N/A</span>';
+    const cweId = escapeHTML(cwe.id);
+    const cweName = escapeHTML(cwe.name);
+    const desc = escapeHTML(
+        cwe.description
+            ? (cwe.description.length > 200
+                ? cwe.description.substring(0, 200) + '...'
+                : cwe.description)
+            : 'No description available'
+    );
+
+    // Show relationship count if available
+    const relCount = (cwe.related_weaknesses || []).length;
+    const relBadge = relCount > 0
+        ? `<span class="cwe-rel-count">${relCount} related</span>`
+        : '';
 
     card.innerHTML = `
-        <div class="cve-card-severity ${sevClass}"></div>
-        <div class="cve-card-body">
-            <div class="cve-card-title">
-                ${escapeHTML(cve.description || 'No description available')}
+        <div class="cwe-card-accent"></div>
+        <div class="cwe-card-body">
+            <div class="cwe-card-header">
+                <span class="cwe-card-id">CWE-${cweId}</span>
+                <span class="cwe-card-name">${cweName}</span>
             </div>
-            <div class="cve-card-meta">
-                <span class="cve-card-id">${escapeHTML(cve.cve_id)}</span>
-                ${badge}
-                <span class="cve-card-date">${formatDate(cve.published)}</span>
+            <div class="cwe-card-desc">${desc}</div>
+            <div class="cwe-card-meta">
+                ${relBadge}
             </div>
         </div>
     `;
 
-    card.addEventListener('click', () => goToCVE(cve.cve_id));
+    card.addEventListener('click', () => goToCWE(cwe.id));
     return card;
+}
+
+/**
+ * Initialise auth guard — call this at the top of every protected page.
+ * Ensures the user is signed in before the page loads.
+ * Adds user info + logout button to the navbar.
+ */
+async function requireAuth() {
+    const ok = await initAuth();
+    if (!ok) {
+        window.location.href = "/login.html";
+        return false;
+    }
+
+    const user = getCurrentUser();
+    if (!user) {
+        // Not signed in — show login page instead of auto-redirecting
+        window.location.href = "/login.html";
+        return false;
+    }
+
+    // Add user info to navbar
+    const nav = document.querySelector('.navbar nav');
+    if (nav) {
+        const userSpan = document.createElement('span');
+        userSpan.className = 'nav-user';
+        userSpan.innerHTML = `
+            <span class="nav-user-name">${escapeHTML(user.name)}</span>
+            <button onclick="logout()" class="nav-logout">Sign Out</button>
+        `;
+        nav.appendChild(userSpan);
+    }
+
+    return true;
 }

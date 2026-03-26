@@ -74,3 +74,39 @@ class TestSanitizeSearchQuery:
         result = sanitize_search_query("test<script>alert(1)</script>")
         assert "<" not in result
         assert ">" not in result
+
+    def test_strips_sql_chars(self):
+        result = sanitize_search_query("test'; DROP TABLE--")
+        assert "'" not in result
+        assert ";" not in result
+
+    def test_allows_hyphens_and_dots(self):
+        result = sanitize_search_query("log4j-2.17.0")
+        assert result == "log4j-2.17.0"
+
+    def test_whitespace_only_returns_empty(self):
+        result = sanitize_search_query("   ")
+        assert result == ""
+
+
+class TestValidationEdgeCases:
+    def test_cve_id_with_xss_payload(self):
+        with pytest.raises(HTTPException) as exc:
+            validate_cve_id('<img src=x onerror="alert(1)">')
+        assert exc.value.status_code == 400
+
+    def test_cve_id_with_newlines(self):
+        with pytest.raises(HTTPException):
+            validate_cve_id("CVE-2021-44228\n; DROP TABLE")
+
+    def test_cwe_id_zero(self):
+        """CWE ID 0 is not valid in the CWE catalogue."""
+        assert validate_cwe_id("0") == "0"  # passes regex, app handles
+
+    def test_cwe_id_negative(self):
+        with pytest.raises(HTTPException):
+            validate_cwe_id("-1")
+
+    def test_cve_id_unicode_bypass(self):
+        with pytest.raises(HTTPException):
+            validate_cve_id("CVE\u200b-2021-44228")  # zero-width space

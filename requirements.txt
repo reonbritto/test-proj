@@ -1,7 +1,7 @@
 fastapi
 uvicorn
 httpx
-pytest
-bandit
-flake8
-respx
+pydantic>=2.0
+defusedxml
+prometheus-client
+PyJWT[crypto]

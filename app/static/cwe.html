@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CWE Details - PureSecure</title>
-    <link rel="stylesheet" href="/style.css">
+    <link rel="stylesheet" href="/style.css?v=2">
 </head>
 <body>
     <header class="navbar">
@@ -12,11 +12,22 @@
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
             </svg>
-            PureSecure <span>CVE Explorer</span>
+            PureSecure <span>CWE Explorer</span>
         </a>
         <nav>
-            <a href="/">Vulnerabilities</a>
+            <a href="/">Weaknesses</a>
             <a href="/search.html">Search</a>
+            <div class="nav-dropdown">
+                <button class="nav-dropdown-btn">Services &#9662;</button>
+                <div class="nav-dropdown-menu">
+                    <span class="dropdown-section">Monitoring</span>
+                    <a href="http://localhost:3000" target="_blank">Grafana</a>
+                    <a href="http://localhost:9090" target="_blank">Prometheus</a>
+                    <a href="http://localhost:8089" target="_blank">Locust</a>
+                    <span class="dropdown-section">API Endpoints</span>
+                    <a href="/docs" target="_blank">Swagger Docs</a>
+                </div>
+            </div>
         </nav>
     </header>
 
@@ -27,23 +38,37 @@
         </div>
 
         <div id="cweContent" style="display:none;">
-            <div class="cve-header">
-                <h1 id="cweTitle"></h1>
+            <!-- Header with ID and MITRE link -->
+            <div class="cwe-detail-header">
+                <div>
+                    <span id="cweIdBadge" class="cwe-detail-id"></span>
+                    <h1 id="cweName" class="cwe-detail-name"></h1>
+                </div>
+                <a id="mitreLink" href="#" target="_blank"
+                   rel="noopener noreferrer" class="mitre-link">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                    View on MITRE
+                </a>
             </div>
 
-            <div class="detail-section">
+            <!-- Description -->
+            <div class="detail-card">
                 <h2>Description</h2>
                 <p id="cweDescription" class="description"></p>
-                <p style="margin-top:0.75rem;">
-                    <a id="mitreLink" href="#" target="_blank"
-                       rel="noopener noreferrer" class="view-all">
-                        View on MITRE CWE &rarr;
-                    </a>
-                </p>
             </div>
 
-            <div class="detail-section">
-                <h2>Associated CVEs</h2>
+            <!-- Related Weaknesses -->
+            <div id="relationshipsSection" class="detail-card" style="display:none;">
+                <h2>Related Weaknesses</h2>
+                <div id="relationshipsList" class="rel-grid"></div>
+            </div>
+
+            <!-- Associated CVEs -->
+            <div class="detail-card">
+                <div class="detail-card-header">
+                    <h2>Associated CVEs</h2>
+                    <span id="cveCount" class="cve-count-badge"></span>
+                </div>
                 <div id="loading2" class="loading">
                     <div class="spinner"></div>
                     <p>Fetching CVEs from NVD...</p>
@@ -56,10 +81,22 @@
     </main>
 
     <footer class="site-footer">
-        <p>PureSecure CVE Explorer &mdash; Data sourced from <a href="https://nvd.nist.gov" target="_blank" rel="noopener noreferrer">NVD</a> and <a href="https://cwe.mitre.org" target="_blank" rel="noopener noreferrer">MITRE CWE</a>.</p>
+        <p>PureSecure CWE Explorer &mdash; Data sourced from <a href="https://cwe.mitre.org" target="_blank" rel="noopener noreferrer">MITRE CWE</a> and <a href="https://nvd.nist.gov" target="_blank" rel="noopener noreferrer">NVD</a>.</p>
     </footer>
 
-    <script src="/common.js"></script>
-    <script src="/cwe.js"></script>
+    <script src="https://alcdn.msauth.net/browser/2.38.2/js/msal-browser.min.js"></script>
+    <script src="/auth.js?v=3"></script>
+    <script src="/common.js?v=3"></script>
+    <script>
+        (async function() {
+            try {
+                var ok = await requireAuth();
+                if (!ok) return;
+                var s = document.createElement('script');
+                s.src = '/cwe.js?v=4';
+                document.body.appendChild(s);
+            } catch(e) { console.error('Auth error:', e); }
+        })();
+    </script>
 </body>
 </html>

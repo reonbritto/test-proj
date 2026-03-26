@@ -9,8 +9,10 @@ venv/
 .vscode/
 .idea/
 .claude/
+.gemini/
 
 # Cache & Data
+data/cache.db
 data/cve_cache.db
 data/*.xml
 data/*.xml.zip
@@ -40,3 +42,10 @@ Thumbs.db
 .env
 *.pem
 *.key
+
+# Docker
+.dockerignore
+
+# Monitoring data (Prometheus/Grafana volumes)
+prometheus-data/
+grafana-data/

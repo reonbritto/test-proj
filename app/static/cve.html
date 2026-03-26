@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CVE Details - PureSecure</title>
-    <link rel="stylesheet" href="/style.css">
+    <link rel="stylesheet" href="/style.css?v=2">
 </head>
 <body>
     <header class="navbar">
@@ -12,18 +12,29 @@
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
             </svg>
-            PureSecure <span>CVE Explorer</span>
+            PureSecure <span>CWE Explorer</span>
         </a>
         <nav>
-            <a href="/">Vulnerabilities</a>
+            <a href="/">Weaknesses</a>
             <a href="/search.html">Search</a>
+            <div class="nav-dropdown">
+                <button class="nav-dropdown-btn">Services &#9662;</button>
+                <div class="nav-dropdown-menu">
+                    <span class="dropdown-section">Monitoring</span>
+                    <a href="http://localhost:3000" target="_blank">Grafana</a>
+                    <a href="http://localhost:9090" target="_blank">Prometheus</a>
+                    <a href="http://localhost:8089" target="_blank">Locust</a>
+                    <span class="dropdown-section">API Endpoints</span>
+                    <a href="/docs" target="_blank">Swagger Docs</a>
+                </div>
+            </div>
         </nav>
     </header>
 
     <main class="container detail-page">
         <div id="loading" class="loading">
             <div class="spinner"></div>
-            <p>Loading CVE details...</p>
+            <p>Loading CVE details from NVD...</p>
         </div>
 
         <div id="cveContent" style="display:none;">
@@ -36,25 +47,27 @@
                 <span>Modified: <strong id="modified"></strong></span>
             </div>
 
-            <div class="detail-section">
+            <div class="detail-card">
                 <h2>Description</h2>
                 <p id="description" class="description"></p>
             </div>
 
-            <h2 class="section-title" style="margin-top:1.5rem;">CVSS Scores</h2>
-            <div class="cvss-panel" id="cvssPanel"></div>
+            <div class="detail-card">
+                <h2>CVSS Scores</h2>
+                <div class="cvss-panel" id="cvssPanel"></div>
+            </div>
 
-            <div class="detail-section">
+            <div class="detail-card">
                 <h2>CWE Classification</h2>
                 <div id="cweSection" class="cwe-tags"></div>
             </div>
 
-            <div class="detail-section">
+            <div class="detail-card">
                 <h2>Affected Products</h2>
                 <div id="productsSection"></div>
             </div>
 
-            <div class="detail-section">
+            <div class="detail-card">
                 <h2>References</h2>
                 <div id="referencesSection"></div>
             </div>
@@ -64,10 +77,22 @@
     </main>
 
     <footer class="site-footer">
-        <p>PureSecure CVE Explorer &mdash; Data sourced from <a href="https://nvd.nist.gov" target="_blank" rel="noopener noreferrer">NVD</a> and <a href="https://cwe.mitre.org" target="_blank" rel="noopener noreferrer">MITRE CWE</a>.</p>
+        <p>PureSecure CWE Explorer &mdash; Data sourced from <a href="https://cwe.mitre.org" target="_blank" rel="noopener noreferrer">MITRE CWE</a> and <a href="https://nvd.nist.gov" target="_blank" rel="noopener noreferrer">NVD</a>.</p>
     </footer>
 
-    <script src="/common.js"></script>
-    <script src="/cve.js"></script>
+    <script src="https://alcdn.msauth.net/browser/2.38.2/js/msal-browser.min.js"></script>
+    <script src="/auth.js?v=3"></script>
+    <script src="/common.js?v=3"></script>
+    <script>
+        (async function() {
+            try {
+                var ok = await requireAuth();
+                if (!ok) return;
+                var s = document.createElement('script');
+                s.src = '/cve.js?v=4';
+                document.body.appendChild(s);
+            } catch(e) { console.error('Auth error:', e); }
+        })();
+    </script>
 </body>
 </html>

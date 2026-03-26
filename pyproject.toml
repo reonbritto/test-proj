@@ -1,7 +1,7 @@
 [project]
-name = "puresecure-cve-explorer"
+name = "puresecure-cwe-explorer"
 version = "1.0.0"
-description = "CVE Vulnerability Database - PureSecure"
+description = "CWE Weakness Database - PureSecure"
 requires-python = ">=3.10"
 
 [tool.pytest.ini_options]

@@ -1,10 +1,13 @@
 # PureSecure CVE Explorer
 
-**A real-time CVE vulnerability database with CWE mapping, analytics, and intelligent caching.**
+**A real-time CVE vulnerability database with CWE mapping, analytics, observability, and Azure Entra ID authentication.**
 
 ![Python](https://img.shields.io/badge/Python-3.10%2B-blue)
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.135.1-009688)
 ![NVD API](https://img.shields.io/badge/NVD%20API-2.0-orange)
+![Prometheus](https://img.shields.io/badge/Prometheus-v2.51.2-e6522c)
+![Grafana](https://img.shields.io/badge/Grafana-10.4.2-f46800)
+![Docker](https://img.shields.io/badge/Docker-Compose-2496ed)
 ![License](https://img.shields.io/badge/License-MIT-green)
 
 ---
@@ -13,9 +16,7 @@
 
 PureSecure CVE Explorer is a web-based security vulnerability database that queries the **NIST National Vulnerability Database (NVD) API 2.0** in real time. It provides a clean, searchable interface for browsing CVEs (Common Vulnerabilities and Exposures), mapping them to CWE (Common Weakness Enumeration) classifications, and visualizing severity analytics.
 
-The backend is built with **FastAPI** and serves a lightweight **vanilla JavaScript** frontend -- no heavy frameworks, no build tools. An **SQLite caching layer** with a 24-hour TTL ensures fast responses while respecting NVD API rate limits. The application includes **37 built-in CWE definitions** for instant lookups, input validation, XSS prevention, and parameterized SQL queries.
-
-All vulnerability data is publicly available from NIST -- no authentication is required.
+The backend is built with **FastAPI** and serves a lightweight **vanilla JavaScript** frontend. An **SQLite caching layer** with a 24-hour TTL ensures fast responses while respecting NVD API rate limits. All API endpoints (except health and config) are protected by **Microsoft Entra ID (Azure AD) JWT authentication**. The full stack runs in **Docker Compose** with integrated **Prometheus** metrics, **Grafana** dashboards, and **Locust** load testing.
 
 ---
 
@@ -25,11 +26,16 @@ All vulnerability data is publicly available from NIST -- no authentication is r
 - **Detailed CVE Views** -- CVSS v2.0 and v3.1 scores with color-coded severity badges
 - **CWE Classification Mapping** -- 37 built-in weakness definitions plus live NVD API fallback
 - **Severity Filtering** -- Filter by CRITICAL, HIGH, MEDIUM, or LOW
-- **Analytics Dashboard** -- Severity distribution, top CWEs, and yearly trend analysis
-- **Intelligent Caching** -- SQLite cache with 24-hour TTL for NVD API rate compliance
+- **Analytics Dashboard** -- Severity distribution, top CWEs, and risk scoring
+- **Azure Entra ID Authentication** -- JWT-based auth via MSAL.js and Microsoft JWKS
+- **Prometheus Metrics** -- Request count, latency histograms, error rates, and in-progress gauges
+- **Grafana Dashboards** -- Pre-provisioned dashboard with 18 panels across 5 sections
+- **Locust Load Testing** -- Pre-built scenarios covering all API endpoints
+- **Intelligent Caching** -- SQLite cache with 24-hour TTL and startup cleanup
+- **Request Logging** -- Structured logs with method, path, status, and duration
 - **Input Validation** -- Regex-based CVE/CWE ID validation and query sanitization
-- **XSS Prevention** -- HTML escaping via `textContent` and `encodeURIComponent` throughout
-- **Responsive Design** -- Clean UI with Inter font and CSS custom properties
+- **XSS Prevention** -- HTML escaping via `textContent` and `encodeURIComponent`
+- **Dockerized** -- Single `docker compose up` deploys the full stack
 
 ---
 
@@ -37,7 +43,7 @@ All vulnerability data is publicly available from NIST -- no authentication is r
 
 ```mermaid
 graph LR
-    subgraph Frontend["Frontend (Vanilla JS)"]
+    subgraph Frontend["Frontend (Vanilla JS + MSAL.js)"]
         direction TB
         A["index.html\nDashboard"]
         B["search.html\nSearch & Filter"]
@@ -47,32 +53,47 @@ graph LR
 
     subgraph Backend["Backend (FastAPI)"]
         direction TB
-        E["main.py\nAPI Routes"]
+        E["main.py\nAPI Routes + Middleware"]
         F["security.py\nInput Validation"]
         G["nvd_client.py\nNVD API Client"]
         H["cwe_parser.py\nCWE Data Provider"]
         I["analytics.py\nData Aggregation"]
         J["cache.py\nSQLite Cache Layer"]
+        AA["auth.py\nEntra ID JWT Auth"]
+        AB["metrics.py\nPrometheus Metrics"]
+    end
+
+    subgraph Observability["Observability Stack"]
+        P["Prometheus\nMetrics Collection"]
+        GR["Grafana\nDashboards"]
+        LO["Locust\nLoad Testing"]
     end
 
     subgraph External["External Services"]
         K[("NVD API 2.0\nservices.nvd.nist.gov")]
+        AZ[("Microsoft Entra ID\nlogin.microsoftonline.com")]
     end
 
     subgraph Storage["Local Storage"]
-        L[("SQLite\ncve_cache.db")]
+        L[("SQLite\ncache.db")]
     end
 
-    A & B & C & D -- "HTTP / JSON" --> E
+    A & B & C & D -- "Bearer Token\nHTTP / JSON" --> E
     E --> F
     E --> G
     E --> H
     E --> I
+    E --> AA
+    E --> AB
     G --> J
     H --> J
     J --> L
     G -- "Rate Limited\n~5 req / 30s" --> K
     I --> J
+    AA -- "JWKS Validation" --> AZ
+    AB -- "/metrics" --> P
+    P --> GR
+    LO -- "HTTP Traffic" --> E
 
     style A fill:#dbeafe,stroke:#3b82f6,color:#1e3a5f
     style B fill:#dbeafe,stroke:#3b82f6,color:#1e3a5f
@@ -84,7 +105,13 @@ graph LR
     style H fill:#d1fae5,stroke:#10b981,color:#064e3b
     style I fill:#d1fae5,stroke:#10b981,color:#064e3b
     style J fill:#d1fae5,stroke:#10b981,color:#064e3b
+    style AA fill:#fce7f3,stroke:#ec4899,color:#831843
+    style AB fill:#fce7f3,stroke:#ec4899,color:#831843
+    style P fill:#fff7ed,stroke:#f97316,color:#7c2d12
+    style GR fill:#fff7ed,stroke:#f97316,color:#7c2d12
+    style LO fill:#fff7ed,stroke:#f97316,color:#7c2d12
     style K fill:#fed7aa,stroke:#f97316,color:#7c2d12
+    style AZ fill:#fed7aa,stroke:#f97316,color:#7c2d12
     style L fill:#e9d5ff,stroke:#7c3aed,color:#3b0764
 ```
 
@@ -93,15 +120,20 @@ graph LR
 ## Tech Stack
 
 | Component | Technology |
-|-----------|-----------|
+|-----------|------------|
 | **Backend Framework** | FastAPI 0.135.1 |
 | **ASGI Server** | Uvicorn |
 | **Language** | Python 3.10+ |
 | **Async HTTP Client** | httpx |
 | **Data Validation** | Pydantic v2 |
-| **Database** | SQLite3 (caching) |
-| **Frontend** | Vanilla JavaScript, HTML5, CSS3 |
-| **Font** | Inter (Google Fonts) |
+| **Database** | SQLite3 (caching, WAL mode) |
+| **Authentication** | Microsoft Entra ID (Azure AD) via PyJWT + JWKS |
+| **Metrics** | prometheus-client (Counter, Histogram, Gauge) |
+| **Monitoring** | Prometheus v2.51.2 + Grafana 10.4.2 |
+| **Load Testing** | Locust 2.24.1 |
+| **XML Security** | defusedxml (XXE prevention) |
+| **Frontend** | Vanilla JavaScript, HTML5, CSS3, MSAL.js |
+| **Containerization** | Docker + Docker Compose |
 | **Testing** | pytest, respx (HTTP mocking) |
 | **Security Scanning** | bandit, flake8 |
 
@@ -111,34 +143,354 @@ graph LR
 
 ```
 cve-new-bri/
-├── app/                            # Application source code
+├── app/                                # Application source code
 │   ├── __init__.py
-│   ├── main.py                     # FastAPI app, all API routes, static file serving
-│   ├── models.py                   # Pydantic models (CVEDetail, CWEEntry, CVSSScores, etc.)
-│   ├── nvd_client.py               # NVD API 2.0 client with rate limiting and caching
-│   ├── cwe_parser.py               # 37 built-in CWE definitions + live NVD fallback
-│   ├── cache.py                    # SQLite cache (cve_cache & search_cache, 24h TTL)
-│   ├── analytics.py                # Severity distribution, top CWEs, trend analysis
-│   ├── security.py                 # Input validation (CVE/CWE ID regex, query sanitization)
-│   └── static/                     # Frontend web assets
-│       ├── index.html              # Dashboard homepage with hero banner
-│       ├── search.html             # Search page with filters and pagination
-│       ├── cve.html                # CVE detail view (CVSS, CWEs, products, references)
-│       ├── cwe.html                # CWE detail view with associated CVEs
-│       ├── style.css               # Full design system with CSS variables
-│       ├── common.js               # Shared utilities (XSS prevention, fetch wrapper)
-│       ├── dashboard.js            # Homepage logic and latest CVEs feed
-│       ├── search.js               # Search with debounced suggestions and filtering
-│       ├── cve.js                  # CVE detail rendering and CVSS display
-│       └── cwe.js                  # CWE detail rendering
-├── tests/                          # Test suite
-│   ├── test_main.py                # API endpoint integration tests
-│   ├── test_nvd_client.py          # NVD API client and response parsing tests
-│   ├── test_cwe_parser.py          # CWE data provider tests
-│   └── test_security.py            # Input validation and sanitization tests
-├── data/                           # Auto-created: SQLite cache database
-├── pyproject.toml                  # Project metadata, pytest/bandit/flake8 config
-└── requirements.txt                # Python dependencies
+│   ├── main.py                         # FastAPI app, routes, middleware, lifespan
+│   ├── models.py                       # Pydantic models (CVEDetail, CWEEntry, etc.)
+│   ├── auth.py                         # Microsoft Entra ID JWT validation (JWKS)
+│   ├── metrics.py                      # Prometheus middleware (count, latency, gauge)
+│   ├── nvd_client.py                   # NVD API 2.0 client with rate limiting
+│   ├── cwe_parser.py                   # 37 built-in CWE definitions + NVD fallback
+│   ├── cache.py                        # SQLite cache (WAL mode, 24h TTL, cleanup)
+│   ├── analytics.py                    # Top CWEs, risk scoring
+│   ├── security.py                     # Input validation (CVE/CWE regex, sanitization)
+│   └── static/                         # Frontend web assets
+│       ├── index.html                  # Dashboard homepage
+│       ├── search.html                 # Search with filters and pagination
+│       ├── cve.html                    # CVE detail view (CVSS, CWEs, products)
+│       ├── cwe.html                    # CWE detail view with associated CVEs
+│       ├── login.html                  # Microsoft Entra ID login page
+│       ├── 404.html                    # Custom 404 error page
+│       ├── style.css                   # Design system with CSS variables
+│       ├── common.js                   # Shared utilities (XSS prevention, fetch)
+│       ├── auth.js                     # MSAL.js authentication logic
+│       ├── dashboard.js                # Homepage logic
+│       ├── search.js                   # Search with debounced suggestions
+│       ├── cve.js                      # CVE detail rendering
+│       └── cwe.js                      # CWE detail rendering
+├── monitoring/                         # Observability configuration
+│   ├── prometheus/
+│   │   ├── prometheus.yml              # Scrape config (15s interval)
+│   │   └── rules/
+│   │       ├── recording_rules.yml     # 17 pre-computed queries
+│   │       └── alerting_rules.yml      # 11 alert rules (errors, latency, traffic)
+│   └── grafana/
+│       ├── provisioning/
+│       │   ├── datasources/
+│       │   │   └── datasource.yml      # Auto-configure Prometheus datasource
+│       │   └── dashboards/
+│       │       └── dashboard.yml       # Auto-load dashboard JSON
+│       └── dashboards/
+│           └── cwe-explorer.json       # 18-panel monitoring dashboard
+├── locust/
+│   └── locustfile.py                   # Load test scenarios (all endpoints)
+├── tests/                              # Test suite
+│   ├── test_main.py                    # API endpoint integration tests
+│   ├── test_auth.py                    # Authentication / JWT validation tests
+│   ├── test_cwe_parser.py              # CWE data provider tests
+│   ├── test_nvd_client.py              # NVD response parser tests
+│   └── test_security.py               # Input validation tests
+├── data/                               # Auto-created: SQLite cache database
+├── docs/
+│   └── REPORT.md                       # Security design report
+├── .env.example                        # Environment variable template
+├── Dockerfile                          # Multi-stage Python 3.10-slim image
+├── docker-compose.yml                  # Full stack: web, prometheus, grafana, locust
+├── requirements.txt                    # Python dependencies
+├── requirements-dev.txt                # Dev dependencies (pytest, bandit, flake8)
+├── pyproject.toml                      # Project metadata, tool config
+├── .gitignore
+└── .dockerignore
+```
+
+---
+
+## Installation & Usage
+
+### Option 1: Docker Compose (Recommended)
+
+This deploys the full stack: API, Prometheus, Grafana, and Locust.
+
+```bash
+# 1. Clone the repository
+git clone <repository-url>
+cd cve-new-bri
+
+# 2. Create a .env file with your Azure Entra ID credentials
+echo "AZURE_TENANT_ID=your-tenant-id" > .env
+echo "AZURE_CLIENT_ID=your-client-id" >> .env
+
+# 3. Build and start all services
+docker compose up --build
+```
+
+#### Service URLs
+
+| Service | URL | Credentials |
+|---------|-----|-------------|
+| **CWE Explorer API** | http://localhost:8000 | Azure Entra ID token |
+| **API Docs (Swagger)** | http://localhost:8000/docs | — |
+| **Prometheus** | http://localhost:9090 | — |
+| **Grafana** | http://localhost:3000 | See `.env` (`GF_ADMIN_USER` / `GF_ADMIN_PASSWORD`) |
+| **Locust** | http://localhost:8089 | — |
+
+### Option 2: Local Development
+
+```bash
+# 1. Clone and enter the project
+git clone <repository-url>
+cd cve-new-bri
+
+# 2. Create and activate a virtual environment
+python -m venv venv
+
+# Windows
+venv\Scripts\activate
+
+# macOS / Linux
+source venv/bin/activate
+
+# 3. Install dependencies
+pip install -r requirements.txt
+
+# 4. Set environment variables
+set AZURE_TENANT_ID=your-tenant-id
+set AZURE_CLIENT_ID=your-client-id
+
+# 5. Start the server
+uvicorn app.main:app --reload
+
+# 6. Open in browser: http://localhost:8000
+```
+
+### Run Tests
+
+```bash
+# Install dev dependencies
+pip install -r requirements-dev.txt
+
+# Run all tests
+pytest
+
+# Verbose with short tracebacks
+pytest -v --tb=short
+
+# Security scan
+bandit -r app/
+
+# Lint check
+flake8 app/
+```
+
+---
+
+## Authentication
+
+All API endpoints except `/api/health`, `/api/config`, and `/metrics` require a valid **Microsoft Entra ID (Azure AD) Bearer token**.
+
+### How It Works
+
+```mermaid
+sequenceDiagram
+    actor User
+    participant FE as Frontend<br/>(MSAL.js)
+    participant API as FastAPI<br/>(auth.py)
+    participant AZ as Microsoft Entra ID
+
+    User->>FE: Open app
+    FE->>API: GET /api/config
+    API-->>FE: {client_id, tenant_id}
+    FE->>AZ: MSAL.js login (OAuth 2.0)
+    AZ-->>FE: JWT access token
+    User->>FE: Search for CVE
+    FE->>API: GET /api/cwe?query=injection<br/>Authorization: Bearer <token>
+    API->>AZ: Fetch JWKS (cached 1h)
+    AZ-->>API: Signing keys
+    API->>API: Validate JWT (RS256, audience check)
+    API-->>FE: JSON response
+    FE-->>User: Rendered results
+```
+
+### Configuration
+
+| Environment Variable | Description |
+|---------------------|-------------|
+| `AZURE_TENANT_ID` | Your Azure AD tenant ID |
+| `AZURE_CLIENT_ID` | App registration client ID (used as JWT `audience`) |
+
+The auth module (`app/auth.py`) uses the Microsoft common JWKS endpoint with issuer validation disabled to support multi-tenant and personal Microsoft accounts.
+
+---
+
+## API Reference
+
+### Public Endpoints (No Auth)
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/api/health` | Health check with cache stats |
+| `GET` | `/api/config` | Entra ID client config for MSAL.js |
+| `GET` | `/metrics` | Prometheus metrics (text format) |
+
+### CWE Endpoints (Auth Required)
+
+| Method | Endpoint | Description | Parameters |
+|--------|----------|-------------|------------|
+| `GET` | `/api/cwe` | List or search CWEs | `query`, `limit` (default: 10, max: 100) |
+| `GET` | `/api/cwe/suggestions` | Autocomplete suggestions | `q` (required, min 1 char) |
+| `GET` | `/api/cwe/{cwe_id}` | Single CWE detail | Path: numeric ID (e.g., `79`) |
+| `GET` | `/api/cwe/{cwe_id}/cves` | CVEs for a specific CWE | Path: numeric ID |
+
+### CVE Endpoints (Auth Required)
+
+| Method | Endpoint | Description | Parameters |
+|--------|----------|-------------|------------|
+| `GET` | `/api/cve/{cve_id}` | Full CVE details | Path: CVE ID (e.g., `CVE-2021-44228`) |
+
+### Analytics Endpoints (Auth Required)
+
+| Method | Endpoint | Description | Parameters |
+|--------|----------|-------------|------------|
+| `GET` | `/api/analytics/top-cwes` | CWEs with most associated CVEs | `limit` (default: 10, max: 50) |
+| `GET` | `/api/analytics/cwe-risk` | CWE risk scores (frequency × severity) | `limit` (default: 15, max: 50) |
+
+### Example Requests
+
+```bash
+# Health check (no auth)
+curl http://localhost:8000/api/health
+
+# Prometheus metrics (no auth)
+curl http://localhost:8000/metrics
+
+# Search CWEs (requires Bearer token)
+curl -H "Authorization: Bearer <token>" \
+  http://localhost:8000/api/cwe?query=injection
+
+# Get CVE detail (requires Bearer token)
+curl -H "Authorization: Bearer <token>" \
+  http://localhost:8000/api/cve/CVE-2021-44228
+```
+
+### Example Response -- Health Check
+
+```json
+{
+  "status": "healthy",
+  "cwe_count": 937,
+  "cache": {
+    "cve_entries": 42,
+    "search_entries": 8,
+    "db_size_bytes": 462848
+  }
+}
+```
+
+---
+
+## Observability
+
+### Prometheus Metrics
+
+The FastAPI app exposes a `/metrics` endpoint with the following metrics:
+
+| Metric | Type | Description |
+|--------|------|-------------|
+| `http_requests_total` | Counter | Total requests by method, endpoint, status |
+| `http_request_duration_seconds` | Histogram | Request latency with percentile-friendly buckets |
+| `http_requests_in_progress` | Gauge | Currently active requests |
+
+Path normalization prevents high-cardinality label explosion (e.g., `/api/cwe/79` → `/api/cwe/{id}`).
+
+### Recording Rules (Pre-computed Queries)
+
+17 recording rules in `monitoring/prometheus/rules/recording_rules.yml`:
+
+| Query | What It Computes |
+|-------|------------------|
+| `cwe:http_requests:rate1m` | Total requests/sec |
+| `cwe:http_requests_by_endpoint:rate1m` | Requests/sec per endpoint |
+| `cwe:http_errors_5xx:rate1m` | Server error rate |
+| `cwe:http_error_ratio_5xx` | % of requests returning 5xx |
+| `cwe:http_latency_p50:5m` | Median response time |
+| `cwe:http_latency_p95:5m` | 95th percentile latency |
+| `cwe:http_latency_p99:5m` | 99th percentile latency |
+| `cwe:http_availability:5m` | Availability % (1 − error ratio) |
+| `cwe:http_in_progress:total` | Current concurrent requests |
+
+### Alerting Rules
+
+11 alerting rules in `monitoring/prometheus/rules/alerting_rules.yml`:
+
+| Alert | Condition | Severity |
+|-------|-----------|----------|
+| **APIDown** | `/metrics` unreachable 2 min | Critical |
+| **HighServerErrorRate** | > 5% of requests are 5xx | Critical |
+| **LowAvailability** | Availability < 99% | Critical |
+| **TrafficSpike** | 10× normal request rate | Critical |
+| **CriticalP95Latency** | p95 > 5 seconds | Critical |
+| **HighClientErrorRate** | > 25% requests are 4xx | Warning |
+| **HighP95Latency** | p95 > 1 second | Warning |
+| **HighP99Latency** | p99 > 3 seconds | Warning |
+| **SlowEndpoint** | Any endpoint p95 > 2s | Warning |
+| **NoTraffic** | Zero requests 10 min | Warning |
+| **HighConcurrency** | > 50 in-progress requests | Warning |
+
+### Grafana Dashboard
+
+The pre-provisioned dashboard ("CWE Explorer -- API Monitoring") has 18 panels in 5 sections:
+
+1. **📊 Overview** -- Total, 2xx, 4xx, 5xx request counts (stat panels)
+2. **🚦 Traffic** -- Requests/sec, cumulative traffic, pie charts by endpoint/method/status
+3. **⏱️ Latency** -- p50/p95/p99 percentiles, per-endpoint p95, avg bar gauge, heatmap
+4. **🔴 Errors & Connections** -- 5xx error rate, in-progress requests
+5. **📋 Request Log** -- Full table of all requests with method, endpoint, status, count, rate, and avg response time
+
+### Locust Load Testing
+
+The `locust/locustfile.py` defines weighted scenarios:
+
+| Scenario | Weight | Endpoint |
+|----------|--------|----------|
+| List CWEs | 5 | `GET /api/cwe` |
+| Search CWEs | 4 | `GET /api/cwe?query=...` |
+| CWE Detail | 3 | `GET /api/cwe/{id}` |
+| Suggestions | 3 | `GET /api/cwe/suggestions` |
+| CWE CVEs | 2 | `GET /api/cwe/{id}/cves` |
+| Top CWEs | 2 | `GET /api/analytics/top-cwes` |
+| Risk Scores | 1 | `GET /api/analytics/cwe-risk` |
+| Health Check | 1 | `GET /` |
+
+Access the Locust UI at http://localhost:8089 to configure users and spawn rate.
+
+---
+
+## Docker Architecture
+
+```mermaid
+graph TD
+    subgraph Docker Compose
+        WEB["web\nFastAPI App\n:8000"]
+        PROM["prometheus\nprom/prometheus:v2.51.2\n:9090"]
+        GRAF["grafana\ngrafana/grafana:10.4.2\n:3000"]
+        LOC["locust\nlocustio/locust:2.24.1\n:8089"]
+    end
+
+    PROM -- "scrape /metrics\nevery 15s" --> WEB
+    GRAF -- "query" --> PROM
+    LOC -- "load test\nHTTP traffic" --> WEB
+
+    WEB -.- V1[("cwe-data\n/app/data")]
+    PROM -.- V2[("prometheus-data\n/prometheus")]
+    GRAF -.- V3[("grafana-data\n/var/lib/grafana")]
+
+    style WEB fill:#d1fae5,stroke:#10b981,color:#064e3b
+    style PROM fill:#fff7ed,stroke:#f97316,color:#7c2d12
+    style GRAF fill:#fff7ed,stroke:#f97316,color:#7c2d12
+    style LOC fill:#dbeafe,stroke:#3b82f6,color:#1e3a5f
+    style V1 fill:#e9d5ff,stroke:#7c3aed,color:#3b0764
+    style V2 fill:#e9d5ff,stroke:#7c3aed,color:#3b0764
+    style V3 fill:#e9d5ff,stroke:#7c3aed,color:#3b0764
 ```
 
 ---
@@ -154,8 +506,11 @@ graph TD
     SEC["security.py\nInput Validation"]
     CACHE["cache.py\nSQLite Cache"]
     ANALYTICS["analytics.py\nData Aggregation"]
-    DB[("SQLite DB\ncve_cache.db")]
+    AUTH["auth.py\nEntra ID JWT"]
+    METRICS["metrics.py\nPrometheus"]
+    DB[("SQLite DB\ncache.db")]
     EXT[("NVD API 2.0")]
+    AZ[("Microsoft\nEntra ID")]
 
     MAIN --> MODELS
     MAIN --> NVD
@@ -163,6 +518,8 @@ graph TD
     MAIN --> SEC
     MAIN --> CACHE
     MAIN --> ANALYTICS
+    MAIN --> AUTH
+    MAIN --> METRICS
 
     NVD --> MODELS
     NVD --> CACHE
@@ -173,6 +530,7 @@ graph TD
     CACHE --> DB
     NVD --> EXT
     CWE --> EXT
+    AUTH --> AZ
 
     style MAIN fill:#d1fae5,stroke:#10b981,color:#064e3b
     style MODELS fill:#dbeafe,stroke:#3b82f6,color:#1e3a5f
@@ -181,64 +539,51 @@ graph TD
     style SEC fill:#fce7f3,stroke:#ec4899,color:#831843
     style CACHE fill:#e9d5ff,stroke:#7c3aed,color:#3b0764
     style ANALYTICS fill:#ccfbf1,stroke:#14b8a6,color:#134e4a
+    style AUTH fill:#fce7f3,stroke:#ec4899,color:#831843
+    style METRICS fill:#fce7f3,stroke:#ec4899,color:#831843
     style DB fill:#f3f4f6,stroke:#6b7280,color:#1f2937
     style EXT fill:#fed7aa,stroke:#f97316,color:#7c2d12
+    style AZ fill:#fed7aa,stroke:#f97316,color:#7c2d12
 ```
 
 ---
 
-## Installation & Usage
+## Security
 
-### Prerequisites
+### Security Layers
 
-- Python 3.10 or higher
-- pip (Python package manager)
+| Layer | Protection | Implementation |
+|-------|-----------|----------------|
+| **Authentication** | Microsoft Entra ID JWT (RS256, audience validation) | `auth.py` -- JWKS cached 1h, multi-tenant support |
+| **CORS** | Origin allowlist, restricted methods/headers | `main.py` -- only localhost:8000 origins, GET only |
+| **CVE ID Validation** | Strict regex `^CVE-\d{4}-\d{4,}$` | `security.py` -- rejects malformed IDs |
+| **CWE ID Validation** | Numeric-only regex `^\d+$` | `security.py` -- prevents injection |
+| **Query Sanitization** | 200 char limit, allowlist `[\w\s\-.,]` | `security.py` -- sanitizes all search input |
+| **SQL Injection Prevention** | Parameterized queries with `?` placeholders | `cache.py` -- all database operations |
+| **XXE Prevention** | `defusedxml` instead of stdlib XML | `cwe_parser.py` -- blocks entity injection |
+| **XSS Prevention** | `escapeHTML()` via `textContent` | `common.js` -- all frontend rendering |
+| **Non-root Container** | `appuser:appgroup` in Docker | `Dockerfile` -- least privilege |
+| **Rate Limiting** | 6-second min interval for NVD requests | `nvd_client.py` -- async sleep-based |
 
-### Setup
-
-```bash
-# 1. Clone the repository
-git clone <repository-url>
-cd cve-new-bri
-
-# 2. Create a virtual environment
-python -m venv venv
-
-# 3. Activate the virtual environment
-# Windows:
-venv\Scripts\activate
-# macOS / Linux:
-source venv/bin/activate
-
-# 4. Install dependencies
-pip install -r requirements.txt
-
-# 5. Start the application
-uvicorn app.main:app --reload
-
-# 6. Open in browser
-# http://localhost:8000
-```
-
-> **Note:** The `data/` directory and SQLite database (`cve_cache.db`) are automatically created on the first API request.
-
----
-
-## Request / Response Data Flow
+### Request / Response Data Flow
 
 ```mermaid
 sequenceDiagram
     actor User
-    participant FE as Frontend<br/>(Vanilla JS)
+    participant FE as Frontend<br/>(MSAL.js)
     participant API as FastAPI<br/>(main.py)
+    participant AUTH as Auth<br/>(auth.py)
     participant SEC as Security<br/>(security.py)
     participant NVD as NVD Client<br/>(nvd_client.py)
     participant CACHE as Cache<br/>(cache.py)
-    participant DB as SQLite<br/>(cve_cache.db)
+    participant DB as SQLite<br/>(cache.db)
     participant EXT as NVD API 2.0
 
     User->>FE: Enter CVE ID
-    FE->>API: GET /api/cve/CVE-2021-44228
+    FE->>API: GET /api/cve/CVE-2021-44228<br/>Authorization: Bearer <token>
+    API->>AUTH: Validate JWT (RS256 + JWKS)
+    AUTH-->>API: Claims payload
+
     API->>SEC: validate_cve_id()
     SEC-->>API: Validated ID
 
@@ -269,123 +614,6 @@ sequenceDiagram
 
 ---
 
-## API Reference
-
-### CVE Endpoints
-
-| Method | Endpoint | Description | Parameters |
-|--------|----------|-------------|------------|
-| `GET` | `/api/cve/latest` | Most recently published CVEs | `limit` (default: 20, max: 50) |
-| `GET` | `/api/cve/suggestions` | Search autocomplete suggestions | `q` (required, min 1 char) |
-| `GET` | `/api/cve/search` | Search with filters | `keyword`, `cwe_id`, `severity`, `limit` (max 50), `offset` |
-| `GET` | `/api/cve/{cve_id}` | Full CVE details | Path: CVE ID (e.g., `CVE-2021-44228`) |
-
-### CWE Endpoints
-
-| Method | Endpoint | Description | Parameters |
-|--------|----------|-------------|------------|
-| `GET` | `/api/cwe` | List or search CWEs | `query`, `limit` (default: 10, max: 100) |
-| `GET` | `/api/cwe/{cwe_id}` | Single CWE detail | Path: numeric ID (e.g., `79`) |
-| `GET` | `/api/cwe/{cwe_id}/cves` | CVEs for a specific CWE | Path: numeric ID |
-
-### Analytics Endpoints
-
-| Method | Endpoint | Description | Parameters |
-|--------|----------|-------------|------------|
-| `GET` | `/api/analytics/severity` | Severity distribution of cached CVEs | None |
-| `GET` | `/api/analytics/top-cwes` | CWEs with most associated CVEs | `limit` (default: 10, max: 50) |
-| `GET` | `/api/analytics/trends` | Yearly severity trends | None |
-
-### Example Requests
-
-```bash
-# Get latest CVEs
-curl http://localhost:8000/api/cve/latest?limit=5
-
-# Search for Log4j vulnerabilities
-curl http://localhost:8000/api/cve/search?keyword=log4j
-
-# Get CVE detail
-curl http://localhost:8000/api/cve/CVE-2021-44228
-
-# Search CWEs
-curl http://localhost:8000/api/cwe?query=injection
-
-# Get severity distribution
-curl http://localhost:8000/api/analytics/severity
-```
-
-### Example Response -- CVE Detail
-
-```json
-{
-  "cve_id": "CVE-2021-44228",
-  "description": "Apache Log4j2 2.0-beta9 through 2.15.0 JNDI features...",
-  "cvss": {
-    "v2_score": 9.3,
-    "v2_vector": "AV:N/AC:M/Au:N/C:C/I:C/A:C",
-    "v3_score": 10.0,
-    "v3_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:C/C:H/I:H/A:H",
-    "v3_severity": "CRITICAL"
-  },
-  "cwe_ids": ["CWE-502", "CWE-400", "CWE-917"],
-  "references": [
-    {
-      "url": "https://logging.apache.org/log4j/2.x/security.html",
-      "source": "cve@mitre.org",
-      "tags": ["Vendor Advisory"]
-    }
-  ],
-  "affected_products": [
-    {
-      "vendor": "apache",
-      "product": "log4j",
-      "version": "2.14.1"
-    }
-  ],
-  "published": "2021-12-10T10:15:09.143",
-  "modified": "2023-11-06T21:15:09.300"
-}
-```
-
----
-
-## API Endpoint Structure
-
-```mermaid
-graph LR
-    ROOT["FastAPI App\nmain.py"] --> CVE_GROUP["/api/cve"]
-    ROOT --> CWE_GROUP["/api/cwe"]
-    ROOT --> ANA_GROUP["/api/analytics"]
-    ROOT --> STATIC["/ Static Files"]
-
-    CVE_GROUP --> CVE_LATEST["GET /latest\nLatest CVEs"]
-    CVE_GROUP --> CVE_SUGGEST["GET /suggestions\nAutocomplete"]
-    CVE_GROUP --> CVE_SEARCH["GET /search\nFilter & Search"]
-    CVE_GROUP --> CVE_ID["GET /{cve_id}\nCVE Detail"]
-
-    CWE_GROUP --> CWE_LIST["GET /\nList CWEs"]
-    CWE_GROUP --> CWE_ID["GET /{cwe_id}\nCWE Detail"]
-    CWE_GROUP --> CWE_CVES["GET /{cwe_id}/cves\nAssociated CVEs"]
-
-    ANA_GROUP --> ANA_SEV["GET /severity\nDistribution"]
-    ANA_GROUP --> ANA_TOP["GET /top-cwes\nTop CWEs"]
-    ANA_GROUP --> ANA_TREND["GET /trends\nYearly Trends"]
-
-    STATIC --> S1["/ -> index.html"]
-    STATIC --> S2["/search.html"]
-    STATIC --> S3["/cve.html"]
-    STATIC --> S4["/cwe.html"]
-
-    style ROOT fill:#d1fae5,stroke:#10b981,color:#064e3b
-    style CVE_GROUP fill:#dbeafe,stroke:#3b82f6,color:#1e3a5f
-    style CWE_GROUP fill:#fef3c7,stroke:#f59e0b,color:#78350f
-    style ANA_GROUP fill:#e9d5ff,stroke:#7c3aed,color:#3b0764
-    style STATIC fill:#f3f4f6,stroke:#6b7280,color:#1f2937
-```
-
----
-
 ## Database / Cache Schema
 
 ```mermaid
@@ -406,76 +634,10 @@ erDiagram
 **Cache behavior:**
 - Both tables use `INSERT OR REPLACE` for upserts
 - TTL is **24 hours**, checked at read time via `_is_expired()`
-- `query_hash` is a SHA-256 hex digest of the serialized query parameter string
-- The database file is auto-created at `data/cve_cache.db` on first request
-
----
-
-## Frontend Navigation Flow
-
-```mermaid
-graph TD
-    HOME["/ (index.html)\nDashboard"] -->|"Click CVE card"| CVE["/cve.html?id=...\nCVE Detail"]
-    HOME -->|"Search bar submit"| SEARCH["/search.html\nSearch & Filter"]
-    HOME -->|"Quick link click"| SEARCH
-
-    SEARCH -->|"Click search result"| CVE
-    SEARCH -->|"CWE filter link"| CWE["/cwe.html?id=...\nCWE Detail"]
-
-    CVE -->|"Click CWE badge"| CWE
-    CWE -->|"Click associated CVE"| CVE
-
-    CVE -->|"Nav: Vulnerabilities"| HOME
-    CVE -->|"Nav: Search"| SEARCH
-    CWE -->|"Nav: Vulnerabilities"| HOME
-    CWE -->|"Nav: Search"| SEARCH
-    SEARCH -->|"Nav: Vulnerabilities"| HOME
-
-    style HOME fill:#d1fae5,stroke:#10b981,color:#064e3b
-    style SEARCH fill:#dbeafe,stroke:#3b82f6,color:#1e3a5f
-    style CVE fill:#fed7aa,stroke:#f97316,color:#7c2d12
-    style CWE fill:#e9d5ff,stroke:#7c3aed,color:#3b0764
-```
-
----
-
-## Security Layer
-
-```mermaid
-graph TD
-    REQ["Incoming Request"] --> ROUTE{"Route Type"}
-
-    ROUTE -->|"CVE by ID"| V1["validate_cve_id()\nRegex: CVE-YYYY-NNNNN+\nStrip + Uppercase"]
-    ROUTE -->|"CWE by ID"| V2["validate_cwe_id()\nRegex: numeric only\nStrip whitespace"]
-    ROUTE -->|"Search / Suggestions"| V3["sanitize_search_query()\n200 char limit\nControl char removal\nAllowlist: word chars,\nspaces, hyphens, dots, commas"]
-
-    V1 -->|"Invalid"| ERR["HTTP 400\nBad Request"]
-    V2 -->|"Invalid"| ERR
-
-    V1 -->|"Valid"| PROC["Process Request"]
-    V2 -->|"Valid"| PROC
-    V3 --> PROC
-
-    PROC --> CACHE_Q["Cache Layer\nParameterized SQL\nNo string interpolation"]
-    PROC --> NVD_Q["NVD Client\nhttpx params dict\nNo URL concatenation"]
-
-    CACHE_Q --> RESP["JSON Response"]
-    NVD_Q --> RESP
-
-    RESP --> FE_SEC["Frontend Rendering\nescapeHTML() via textContent\nNo innerHTML with user data\nencodeURIComponent() for URLs"]
-
-    style REQ fill:#f3f4f6,stroke:#6b7280,color:#1f2937
-    style ROUTE fill:#fef3c7,stroke:#f59e0b,color:#78350f
-    style V1 fill:#fce7f3,stroke:#ec4899,color:#831843
-    style V2 fill:#fce7f3,stroke:#ec4899,color:#831843
-    style V3 fill:#fce7f3,stroke:#ec4899,color:#831843
-    style ERR fill:#fee2e2,stroke:#ef4444,color:#7f1d1d
-    style PROC fill:#d1fae5,stroke:#10b981,color:#064e3b
-    style CACHE_Q fill:#e9d5ff,stroke:#7c3aed,color:#3b0764
-    style NVD_Q fill:#e9d5ff,stroke:#7c3aed,color:#3b0764
-    style RESP fill:#dbeafe,stroke:#3b82f6,color:#1e3a5f
-    style FE_SEC fill:#ccfbf1,stroke:#14b8a6,color:#134e4a
-```
+- Expired entries are cleaned up at startup via `cleanup_expired()`
+- WAL journal mode enables concurrent reads without blocking writes
+- `query_hash` is a SHA-256 hex digest of the serialized query parameters
+- The database file is auto-created at `data/cache.db`
 
 ---
 
@@ -491,65 +653,87 @@ All data models are defined in `app/models.py` using Pydantic v2.
 | **Reference** | `url`, `source`, `tags` | External advisory links |
 | **CVEDetail** | `cve_id`, `description`, `cvss`, `cwe_ids`, `references`, `affected_products`, `published`, `modified` | Full vulnerability record |
 | **CVESearchResult** | `cve_id`, `description`, `severity`, `cvss_v3`, `published` | Lightweight search result |
-| **SeverityDistribution** | `critical`, `high`, `medium`, `low`, `none` | Severity count statistics |
 | **CWEStats** | `cwe_id`, `cwe_name`, `cve_count` | CWE popularity ranking |
-| **TrendPoint** | `year`, `severity`, `count` | Yearly severity trend data |
+| **CWERiskScore** | `cwe_id`, `cwe_name`, `risk_score`, ... | Composite risk ranking |
+
+---
+
+## Configuration
+
+| Variable / Constant | Value | Location | Description |
+|---------------------|-------|----------|-------------|
+| `AZURE_TENANT_ID` | (env var) | `docker-compose.yml` | Azure AD tenant ID |
+| `AZURE_CLIENT_ID` | (env var) | `docker-compose.yml` | App registration client ID |
+| `TTL_HOURS` | `24` | `app/cache.py` | Cache expiration time |
+| `DB_PATH` | `data/cache.db` | `app/cache.py` | SQLite database location |
+| `NVD_BASE_URL` | `services.nvd.nist.gov/...` | `app/nvd_client.py` | NVD API endpoint |
+| `REQUEST_TIMEOUT` | `30.0` | `app/nvd_client.py` | HTTP timeout (seconds) |
+| `_MIN_INTERVAL` | `6.0` | `app/nvd_client.py` | Rate limit interval |
+| `MAX_QUERY_LENGTH` | `200` | `app/security.py` | Max search query length |
+| `_JWKS_TTL` | `1 hour` | `app/auth.py` | JWKS key cache duration |
 
 ---
 
 ## Testing
-
-```bash
-# Run all tests
-pytest
-
-# Verbose output with short tracebacks (default in pyproject.toml)
-pytest -v --tb=short
-
-# Security scanning with bandit
-bandit -r app/
-
-# Code style checking with flake8
-flake8 app/
-```
 
 ### Test Modules
 
 | Module | Description |
 |--------|-------------|
 | `test_main.py` | API endpoint integration tests using `TestClient` and mocked NVD calls |
-| `test_nvd_client.py` | NVD response parsing tests with `respx` HTTP mocking |
-| `test_cwe_parser.py` | CWE data provider tests (37 built-in entries) |
+| `test_auth.py` | Authentication and JWT validation tests (token rejection, public endpoints) |
+| `test_cwe_parser.py` | CWE data provider tests (XML parsing + fallback) |
+| `test_nvd_client.py` | NVD response parser tests (CVSS v2/v3, CWE IDs, CPE products, dates) |
 | `test_security.py` | Input validation tests including SQL injection and XSS payload rejection |
 
 ---
 
-## Security Considerations
+## CI/CD Pipeline
 
-| Layer | Protection | Implementation |
-|-------|-----------|----------------|
-| **CVE ID Validation** | Strict regex `^CVE-\d{4}-\d{4,}$` | `security.py` -- rejects malformed IDs |
-| **CWE ID Validation** | Numeric-only regex `^\d+$` | `security.py` -- prevents injection |
-| **Query Sanitization** | 200 char limit, control char removal, allowlist `[\w\s\-.,]` | `security.py` -- sanitizes all search input |
-| **SQL Injection Prevention** | Parameterized queries with `?` placeholders | `cache.py` -- all database operations |
-| **XSS Prevention** | `escapeHTML()` via `textContent`, `encodeURIComponent()` | `common.js` -- all frontend rendering |
-| **API Rate Limiting** | 6-second minimum interval between NVD requests | `nvd_client.py` -- async sleep-based limiter |
-| **No Authentication** | Public data only (NVD is a public database) | By design -- no secrets or user data stored |
+The project uses a GitHub Actions pipeline (`.github/workflows/ci-cd.yml`) with 8 stages following the shift-left security principle:
 
----
+| Stage | Tool | Purpose |
+|-------|------|---------|
+| 1. Lint | Flake8 | Code quality and PEP 8 compliance |
+| 2. SAST | Bandit | Python security pattern analysis |
+| 3. SAST | CodeQL | Semantic code analysis (Python + JavaScript) |
+| 4. SCA | Safety + pip-audit | Dependency vulnerability scanning |
+| 5. Secrets | Gitleaks | Detect committed secrets in git history |
+| 6. SBOM | CycloneDX | Software Bill of Materials (JSON + XML) |
+| 7. Test | pytest | Unit and integration tests with coverage |
+| 8. Docker | Docker Build & Push | Build image and push to DockerHub |
 
-## Configuration
+Stages 1--7 run in parallel on every push and pull request. Stage 8 runs only on push to `main`/`master` after all other stages pass.
 
-Key constants and their locations:
+### DockerHub Deployment
 
-| Constant | Value | File | Description |
-|----------|-------|------|-------------|
-| `TTL_HOURS` | `24` | `app/cache.py:10` | Cache expiration time |
-| `DB_PATH` | `data/cve_cache.db` | `app/cache.py:9` | SQLite database location |
-| `NVD_BASE_URL` | `https://services.nvd.nist.gov/rest/json/cves/2.0` | `app/nvd_client.py:12` | NVD API endpoint |
-| `REQUEST_TIMEOUT` | `30.0` | `app/nvd_client.py:13` | HTTP request timeout (seconds) |
-| `_MIN_INTERVAL` | `6.0` | `app/nvd_client.py:17` | Rate limit interval (seconds) |
-| `MAX_QUERY_LENGTH` | `200` | `app/security.py:7` | Maximum search query length |
+The pipeline automatically builds the Docker image and pushes it to DockerHub with two tags:
+
+- **`latest`** -- always points to the most recent main branch build
+- **`<short-sha>`** -- the 7-character commit SHA for precise version tracking
+
+**Required repository secrets:**
+
+| Secret | Description |
+|--------|-------------|
+| `DOCKERHUB_USERNAME` | DockerHub account username |
+| `DOCKERHUB_TOKEN` | DockerHub access token ([create one here](https://hub.docker.com/settings/security)) |
+
+### Running the Pipeline Locally
+
+```bash
+# Lint
+flake8 app/ tests/ --max-line-length=100
+
+# Security scan
+bandit -r app/ -ll
+
+# Tests with coverage
+pytest tests/ -v --tb=short --cov=app
+
+# Docker build (local)
+docker build -t puresecure-cve-explorer .
+```
 
 ---
 
@@ -558,113 +742,7 @@ Key constants and their locations:
 - **[NIST NVD](https://nvd.nist.gov/)** -- National Vulnerability Database, the source of all CVE data
 - **[MITRE CWE](https://cwe.mitre.org/)** -- Common Weakness Enumeration definitions
 - **[FastAPI](https://fastapi.tiangolo.com/)** -- Modern Python web framework
-
----
-
-## How to Run
-
-### Quick Start
-
-```bash
-# 1. Clone and enter the project
-git clone <repository-url>
-cd cve-new-bri
-
-# 2. Create and activate a virtual environment
-python -m venv venv
-
-# Windows
-venv\Scripts\activate
-
-# macOS / Linux
-source venv/bin/activate
-
-# 3. Install dependencies
-pip install -r requirements.txt
-
-# 4. Start the server
-uvicorn app.main:app --reload
-```
-
-The application will be available at **http://localhost:8000**.
-
-### Run Options
-
-| Command | Description |
-|---------|-------------|
-| `uvicorn app.main:app --reload` | Development mode with auto-reload on code changes |
-| `uvicorn app.main:app --host 0.0.0.0 --port 8000` | Expose to network (accessible from other devices) |
-| `uvicorn app.main:app --workers 4` | Production mode with 4 worker processes |
-
-### Run Tests
-
-```bash
-# All tests
-pytest
-
-# Verbose with short tracebacks
-pytest -v --tb=short
-
-# Security scan
-bandit -r app/
-
-# Lint check
-flake8 app/
-```
-
-### Run with Environment Variables
-
-```bash
-# Optional: Set NVD API key for higher rate limits (50 req/30s vs 5 req/30s)
-export NVD_API_KEY=your-api-key-here
-
-# Start the server
-uvicorn app.main:app --reload
-```
-
-### Verify It Works
-
-Once running, open your browser and try:
-
-1. **Dashboard** -- http://localhost:8000 (latest CVEs feed)
-2. **Search** -- http://localhost:8000/search.html?keyword=log4j
-3. **CVE Detail** -- http://localhost:8000/cve.html?id=CVE-2021-44228
-4. **API directly** -- http://localhost:8000/api/cve/latest
-
-### Run Workflow
-
-```mermaid
-graph TD
-    A["Clone Repository"] --> B["Create Virtual Environment\npython -m venv venv"]
-    B --> C["Activate venv\nvenv/Scripts/activate"]
-    C --> D["Install Dependencies\npip install -r requirements.txt"]
-    D --> E{"Choose Mode"}
-
-    E -->|"Development"| F["uvicorn app.main:app --reload\nAuto-reload on changes"]
-    E -->|"Production"| G["uvicorn app.main:app\n--host 0.0.0.0 --workers 4"]
-    E -->|"Testing"| H["pytest -v --tb=short"]
-
-    F --> I["Open http://localhost:8000"]
-    G --> I
-    H --> J["View Test Results"]
-
-    I --> K["Browse Dashboard"]
-    I --> L["Search CVEs"]
-    I --> M["View CVE Details"]
-    I --> N["Explore CWEs"]
-
-    style A fill:#f3f4f6,stroke:#6b7280,color:#1f2937
-    style B fill:#dbeafe,stroke:#3b82f6,color:#1e3a5f
-    style C fill:#dbeafe,stroke:#3b82f6,color:#1e3a5f
-    style D fill:#dbeafe,stroke:#3b82f6,color:#1e3a5f
-    style E fill:#fef3c7,stroke:#f59e0b,color:#78350f
-    style F fill:#d1fae5,stroke:#10b981,color:#064e3b
-    style G fill:#d1fae5,stroke:#10b981,color:#064e3b
-    style H fill:#e9d5ff,stroke:#7c3aed,color:#3b0764
-    style I fill:#ccfbf1,stroke:#14b8a6,color:#134e4a
-    style J fill:#e9d5ff,stroke:#7c3aed,color:#3b0764
-    style K fill:#ccfbf1,stroke:#14b8a6,color:#134e4a
-    style L fill:#ccfbf1,stroke:#14b8a6,color:#134e4a
-    style M fill:#ccfbf1,stroke:#14b8a6,color:#134e4a
-    style N fill:#ccfbf1,stroke:#14b8a6,color:#134e4a
-```
+- **[Prometheus](https://prometheus.io/)** -- Metrics collection and alerting
+- **[Grafana](https://grafana.com/)** -- Observability dashboards
+- **[Locust](https://locust.io/)** -- Load testing framework
+- **[Microsoft Entra ID](https://learn.microsoft.com/en-us/entra/)** -- Identity platform

@@ -1,26 +1,7 @@
-"""Analytics engine for CVE data aggregation and statistics."""
-from collections import Counter
+"""Analytics engine for CWE data aggregation and risk scoring."""
+from collections import Counter, defaultdict
 from typing import List
-from .models import SeverityDistribution, CWEStats, TrendPoint
-
-
-def severity_distribution(cves: List[dict]) -> SeverityDistribution:
-    """Calculate severity distribution from cached CVE data."""
-    dist = SeverityDistribution()
-    for cve in cves:
-        cvss = cve.get("cvss", {})
-        severity = (cvss.get("v3_severity") or "").upper()
-        if severity == "CRITICAL":
-            dist.critical += 1
-        elif severity == "HIGH":
-            dist.high += 1
-        elif severity == "MEDIUM":
-            dist.medium += 1
-        elif severity == "LOW":
-            dist.low += 1
-        else:
-            dist.none += 1
-    return dist
+from .models import CWEStats, CWERiskScore
 
 
 def top_cwes(cves: List[dict],
@@ -46,23 +27,53 @@ def top_cwes(cves: List[dict],
     return results
 
 
-def severity_trends(cves: List[dict]) -> List[TrendPoint]:
-    """Group CVEs by year and severity for trend analysis."""
-    year_severity = Counter()
-    for cve in cves:
-        published = cve.get("published", "")
-        if len(published) >= 4:
-            year = int(published[:4])
-        else:
-            continue
+def cwe_risk_scores(cves: List[dict],
+                    cwe_dict: dict,
+                    limit: int = 15) -> List[CWERiskScore]:
+    """Compute CWE risk scores by cross-referencing frequency and severity.
 
+    Combines how often a CWE appears in real CVEs with the average
+    CVSS v3 severity of those CVEs. This analysis is not available
+    on the CWE website, which lists weaknesses statically without
+    real-world exploit frequency or severity data.
+    """
+    cwe_counts: Counter = Counter()
+    cwe_scores: dict = defaultdict(list)
+
+    for cve in cves:
         cvss = cve.get("cvss", {})
-        severity = (cvss.get("v3_severity") or "UNKNOWN").upper()
-        year_severity[(year, severity)] += 1
+        v3_score = cvss.get("v3_score")
+        for cwe_id in cve.get("cwe_ids", []):
+            cwe_counts[cwe_id] += 1
+            if v3_score is not None:
+                cwe_scores[cwe_id].append(float(v3_score))
+
+    if not cwe_counts:
+        return []
+
+    max_count = max(cwe_counts.values())
 
     results = []
-    for (year, severity), count in sorted(year_severity.items()):
-        results.append(TrendPoint(
-            year=year, severity=severity, count=count
+    for cwe_id, count in cwe_counts.most_common(limit):
+        scores = cwe_scores.get(cwe_id, [])
+        avg_cvss = round(sum(scores) / len(scores), 1) if scores else 0.0
+
+        # Composite risk: 60% frequency, 40% severity (both normalised)
+        norm_freq = count / max_count if max_count else 0
+        norm_severity = avg_cvss / 10.0
+        risk = round((norm_freq * 0.6 + norm_severity * 0.4) * 100, 1)
+
+        numeric_id = cwe_id.replace("CWE-", "")
+        cwe_entry = cwe_dict.get(numeric_id)
+        cwe_name = cwe_entry.name if cwe_entry else cwe_id
+
+        results.append(CWERiskScore(
+            cwe_id=cwe_id,
+            cwe_name=cwe_name,
+            cve_count=count,
+            avg_cvss=avg_cvss,
+            risk_score=risk
         ))
+
+    results.sort(key=lambda r: r.risk_score, reverse=True)
     return results

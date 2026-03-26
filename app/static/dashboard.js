@@ -1,4 +1,4 @@
-document.addEventListener('DOMContentLoaded', () => {
+(function () {
     const searchInput = document.getElementById('searchInput');
     const searchBtn = document.getElementById('searchBtn');
     const suggestionsDiv = document.getElementById('suggestions');
@@ -35,8 +35,9 @@ document.addEventListener('DOMContentLoaded', () => {
     function handleSearch() {
         const q = searchInput.value.trim();
         if (!q) return;
-        if (/^CVE-\d{4}-\d{4,}$/i.test(q)) {
-            goToCVE(q.toUpperCase());
+        const cweMatch = q.match(/^(?:CWE-?)?(\d+)$/i);
+        if (cweMatch) {
+            goToCWE(cweMatch[1]);
         } else {
             goToSearch(q);
         }
@@ -45,7 +46,7 @@ document.addEventListener('DOMContentLoaded', () => {
     async function fetchSuggestions(q) {
         try {
             const data = await fetchAPI(
-                `/api/cve/suggestions?q=${encodeURIComponent(q)}`
+                `/api/cwe/suggestions?q=${encodeURIComponent(q)}`
             );
             if (data.length === 0) {
                 suggestionsDiv.classList.remove('active');
@@ -58,37 +59,37 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // Load page data
-    loadLatestCVEs();
-});
+    // Load common CWEs for the homepage grid
+    loadCommonCWEs();
 
-async function loadLatestCVEs() {
-    const container = document.getElementById('latestCves');
-    const loading = document.getElementById('latestLoading');
+    async function loadCommonCWEs() {
+        const container = document.getElementById('cweGrid');
+        const loading = document.getElementById('cweLoading');
 
-    try {
-        const data = await fetchAPI('/api/cve/latest?limit=20');
-        loading.style.display = 'none';
+        try {
+            const data = await fetchAPI('/api/cwe?limit=30');
+            loading.style.display = 'none';
 
-        if (data.length === 0) {
+            if (data.length === 0) {
+                container.innerHTML = `<div class="empty-state">
+                    <p>No CWE data loaded yet.</p>
+                    <p class="subtext">Try searching for a weakness like
+                    <a href="/cwe.html?id=79"
+                       style="color:var(--green-dark)">CWE-79 (XSS)</a>
+                    to start exploring.</p>
+                </div>`;
+                return;
+            }
+
+            data.forEach((cwe, index) => {
+                container.appendChild(createCWECard(cwe, index));
+            });
+        } catch (err) {
+            loading.style.display = 'none';
             container.innerHTML = `<div class="empty-state">
-                <p>No CVE data loaded yet.</p>
-                <p class="subtext">Try searching for a specific CVE like
-                <a href="/cve.html?id=CVE-2021-44228"
-                   style="color:var(--green-dark)">CVE-2021-44228</a>
-                to start populating the database.</p>
+                <p>Could not load CWE data.</p>
+                <p class="subtext">${escapeHTML(err.message)}</p>
             </div>`;
-            return;
         }
-
-        data.forEach((cve, index) => {
-            container.appendChild(createCVECard(cve, index));
-        });
-    } catch (err) {
-        loading.style.display = 'none';
-        container.innerHTML = `<div class="empty-state">
-            <p>Could not load latest CVEs.</p>
-            <p class="subtext">${escapeHTML(err.message)}</p>
-        </div>`;
     }
-}
+})();

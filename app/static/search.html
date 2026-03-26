@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Search CVEs - PureSecure</title>
-    <link rel="stylesheet" href="/style.css">
+    <title>Search CWEs - PureSecure</title>
+    <link rel="stylesheet" href="/style.css?v=2">
 </head>
 <body>
     <header class="navbar">
@@ -12,83 +12,84 @@
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
             </svg>
-            PureSecure <span>CVE Explorer</span>
+            PureSecure <span>CWE Explorer</span>
         </a>
         <nav>
-            <a href="/">Vulnerabilities</a>
+            <a href="/">Weaknesses</a>
             <a href="/search.html" class="nav-active">Search</a>
+            <div class="nav-dropdown">
+                <button class="nav-dropdown-btn">Services &#9662;</button>
+                <div class="nav-dropdown-menu">
+                    <span class="dropdown-section">Monitoring</span>
+                    <a href="http://localhost:3000" target="_blank">Grafana</a>
+                    <a href="http://localhost:9090" target="_blank">Prometheus</a>
+                    <a href="http://localhost:8089" target="_blank">Locust</a>
+                    <span class="dropdown-section">API Endpoints</span>
+                    <a href="/docs" target="_blank">Swagger Docs</a>
+                </div>
+            </div>
         </nav>
     </header>
 
     <main class="container">
         <div class="search-page-header">
-            <h1>Search Vulnerabilities</h1>
-            <p>Query the NVD database by keyword, CVE ID, or filter by severity level.</p>
+            <h1>Search Weaknesses</h1>
+            <p>Browse the CWE catalogue by name, ID, or keyword to find common software weaknesses.</p>
         </div>
 
         <div class="search-wrapper">
             <div class="search-container">
                 <svg class="search-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
-                <input type="text" id="searchInput" placeholder="e.g. CVE-2021-44228, log4j, apache..." autocomplete="off">
+                <input type="text" id="searchInput" placeholder="e.g. CWE-79, sql injection, buffer overflow..." autocomplete="off">
                 <button id="searchBtn">Search</button>
             </div>
             <div id="suggestions" class="suggestions-dropdown"></div>
         </div>
 
-        <div class="filters-bar">
-            <select id="severityFilter" class="filter-select">
-                <option value="">All Severities</option>
-                <option value="CRITICAL">Critical</option>
-                <option value="HIGH">High</option>
-                <option value="MEDIUM">Medium</option>
-                <option value="LOW">Low</option>
-            </select>
-        </div>
-
         <!-- Recommendations shown before search -->
         <div id="recommendations" class="recommendations">
-            <h3>Suggested Searches</h3>
+            <h3>Browse by Category</h3>
             <div class="rec-grid">
-                <a href="/search.html?keyword=remote+code+execution" class="rec-card">
+                <a href="/cwe.html?id=20" class="rec-card">
                     <div class="rec-icon critical">!</div>
                     <div>
-                        <strong>Remote Code Execution</strong>
-                        <p>Critical RCE vulnerabilities</p>
+                        <strong>Input Validation</strong>
+                        <p>CWE-20: Improper input handling</p>
                     </div>
                 </a>
-                <a href="/search.html?keyword=sql+injection" class="rec-card">
+                <a href="/cwe.html?id=89" class="rec-card">
                     <div class="rec-icon high">!</div>
                     <div>
                         <strong>SQL Injection</strong>
-                        <p>Database injection flaws</p>
+                        <p>CWE-89: Database injection flaws</p>
                     </div>
                 </a>
-                <a href="/search.html?keyword=cross-site+scripting" class="rec-card">
+                <a href="/cwe.html?id=79" class="rec-card">
                     <div class="rec-icon medium">!</div>
                     <div>
                         <strong>Cross-Site Scripting</strong>
-                        <p>XSS attack vectors</p>
+                        <p>CWE-79: XSS attack vectors</p>
                     </div>
                 </a>
-                <a href="/search.html?keyword=privilege+escalation" class="rec-card">
+                <a href="/cwe.html?id=287" class="rec-card">
                     <div class="rec-icon high">!</div>
                     <div>
-                        <strong>Privilege Escalation</strong>
-                        <p>Unauthorised access elevation</p>
+                        <strong>Authentication</strong>
+                        <p>CWE-287: Improper authentication</p>
                     </div>
                 </a>
-                <a href="/search.html?keyword=denial+of+service" class="rec-card">
+                <a href="/cwe.html?id=119" class="rec-card">
                     <div class="rec-icon medium">!</div>
                     <div>
-                        <strong>Denial of Service</strong>
-                        <p>Service disruption attacks</p>
+                        <strong>Buffer Overflow</strong>
+                        <p>CWE-119: Memory boundary errors</p>
                     </div>
                 </a>
-                <a href="/search.html?keyword=authentication+bypass" class="rec-card">
+                <a href="/cwe.html?id=284" class="rec-card">
                     <div class="rec-icon critical">!</div>
                     <div>
-                        <strong>Authentication Bypass</strong>
-                        <p>Auth mechanism failures</p>
+                        <strong>Access Control</strong>
+                        <p>CWE-284: Improper access control</p>
                     </div>
                 </a>
             </div>
@@ -96,7 +97,7 @@
 
         <div id="loading" class="loading hidden">
             <div class="spinner"></div>
-            <p>Searching NVD database...</p>
+            <p>Searching CWE database...</p>
         </div>
 
         <div id="resultsHeader" style="display:none;">
@@ -105,16 +106,28 @@
             </div>
         </div>
 
-        <div id="results" class="cve-feed"></div>
+        <div id="results" class="cwe-feed"></div>
 
         <div id="pagination" class="pagination"></div>
     </main>
 
     <footer class="site-footer">
-        <p>PureSecure CVE Explorer &mdash; Data sourced from <a href="https://nvd.nist.gov" target="_blank" rel="noopener noreferrer">NVD</a> and <a href="https://cwe.mitre.org" target="_blank" rel="noopener noreferrer">MITRE CWE</a>.</p>
+        <p>PureSecure CWE Explorer &mdash; Data sourced from <a href="https://cwe.mitre.org" target="_blank" rel="noopener noreferrer">MITRE CWE</a> and <a href="https://nvd.nist.gov" target="_blank" rel="noopener noreferrer">NVD</a>.</p>
     </footer>
 
-    <script src="/common.js"></script>
-    <script src="/search.js"></script>
+    <script src="https://alcdn.msauth.net/browser/2.38.2/js/msal-browser.min.js"></script>
+    <script src="/auth.js?v=3"></script>
+    <script src="/common.js?v=3"></script>
+    <script>
+        (async function() {
+            try {
+                var ok = await requireAuth();
+                if (!ok) return;
+                var s = document.createElement('script');
+                s.src = '/search.js?v=4';
+                document.body.appendChild(s);
+            } catch(e) { console.error('Auth error:', e); }
+        })();
+    </script>
 </body>
 </html>

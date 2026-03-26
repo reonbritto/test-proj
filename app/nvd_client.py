@@ -216,6 +216,7 @@ async def _fetch_cves_by_date(
                 description=cve.description[:300],
                 severity=cve.cvss.v3_severity,
                 cvss_v3=cve.cvss.v3_score,
+                cwe_ids=cve.cwe_ids,
                 published=cve.published
             ))
             cache.set_cached_cve(cve.cve_id, cve.model_dump())
@@ -292,6 +293,7 @@ async def search_cves(
                 description=cve.description[:300],
                 severity=cve.cvss.v3_severity,
                 cvss_v3=cve.cvss.v3_score,
+                cwe_ids=cve.cwe_ids,
                 published=cve.published
             ))
             cache.set_cached_cve(cve.cve_id, cve.model_dump())

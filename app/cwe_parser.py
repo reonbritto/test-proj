@@ -1,18 +1,38 @@
-"""Live CWE data provider.
+"""CWE data provider with XML dataset parsing.
 
-Provides CWE weakness definitions from a built-in reference
-dataset of the most common CWEs, with live NVD API fallback
-for any CWE not in the built-in set. No XML downloads needed.
+Downloads and parses the official CWE XML dataset from MITRE
+(https://cwe.mitre.org/data/xml/cwec_latest.xml.zip), extracting
+weakness definitions including relationships. Falls back to a
+built-in reference dataset if the download or parse fails.
+
+Uses defusedxml to prevent XXE attacks (CWE-611) when processing
+the XML document.
 """
+import os
+import zipfile
+import logging
 import httpx
 from typing import List, Optional
+
+import defusedxml.ElementTree as ET
+
 from .models import CWEEntry
 from . import cache
 
+logger = logging.getLogger(__name__)
+
+CWE_XML_URL = "https://cwe.mitre.org/data/xml/cwec_latest.xml.zip"
+CWE_XML_ZIP_PATH = os.path.join(
+    os.path.dirname(__file__), "..", "data", "cwec_latest.xml.zip"
+)
+CWE_XML_NS = {"cwe": "http://cwe.mitre.org/cwe-6"}
 NVD_CWE_URL = "https://services.nvd.nist.gov/rest/json/cves/2.0"
 
+# Module-level cache for parsed XML data (populated once)
+_xml_cwe_data: Optional[List[CWEEntry]] = None
+
 # Built-in CWE reference data for commonly referenced weaknesses.
-# Provides instant lookups without API calls.
+# Used as fallback if XML download/parse fails.
 COMMON_CWES = [
     CWEEntry(id="16", name="Configuration",
              description="Software configuration weakness."),
@@ -145,21 +165,141 @@ COMMON_CWES = [
 ]
 
 
-def get_cwe_data() -> List[CWEEntry]:
-    """Return the built-in CWE reference dataset.
+def _download_cwe_xml() -> Optional[str]:
+    """Download the CWE XML zip from MITRE and extract the XML file.
 
-    Provides instant access to common CWE definitions
-    without requiring any file downloads or XML parsing.
+    Returns the path to the extracted XML file, or None on failure.
     """
-    return list(COMMON_CWES)
+    data_dir = os.path.dirname(CWE_XML_ZIP_PATH)
+    os.makedirs(data_dir, exist_ok=True)
+
+    try:
+        logger.info("Downloading CWE XML from %s", CWE_XML_URL)
+        with httpx.Client(timeout=60.0) as client:
+            response = client.get(CWE_XML_URL, follow_redirects=True)
+            response.raise_for_status()
+
+        with open(CWE_XML_ZIP_PATH, "wb") as f:
+            f.write(response.content)
+
+        with zipfile.ZipFile(CWE_XML_ZIP_PATH, "r") as zf:
+            xml_names = [n for n in zf.namelist()
+                         if n.endswith(".xml")]
+            if not xml_names:
+                logger.error("No XML file found in CWE zip")
+                return None
+            xml_name = xml_names[0]
+            zf.extract(xml_name, data_dir)
+            return os.path.join(data_dir, xml_name)
+
+    except (httpx.HTTPError, zipfile.BadZipFile, OSError) as exc:
+        logger.warning("CWE XML download failed: %s", exc)
+        return None
+
+
+def _parse_cwe_xml(xml_path: str) -> List[CWEEntry]:
+    """Parse the CWE XML file using defusedxml (XXE-safe).
+
+    Extracts Weakness elements with their ID, Name, Description,
+    and Related_Weaknesses (parent/child/peer relationships).
+    """
+    tree = ET.parse(xml_path)
+    root = tree.getroot()
+
+    weaknesses = root.findall(".//cwe:Weakness", CWE_XML_NS)
+    entries = []
+
+    for weakness in weaknesses:
+        cwe_id = weakness.get("ID", "")
+        name = weakness.get("Name", "")
+
+        desc_elem = weakness.find("cwe:Description", CWE_XML_NS)
+        description = ""
+        if desc_elem is not None and desc_elem.text:
+            description = desc_elem.text.strip()
+
+        # Extract relationship data (ChildOf, ParentOf, PeerOf, etc.)
+        related = []
+        rel_weaknesses = weakness.find(
+            "cwe:Related_Weaknesses", CWE_XML_NS
+        )
+        if rel_weaknesses is not None:
+            for rel in rel_weaknesses.findall(
+                "cwe:Related_Weakness", CWE_XML_NS
+            ):
+                nature = rel.get("Nature", "")
+                target_id = rel.get("CWE_ID", "")
+                if nature and target_id:
+                    related.append({
+                        "nature": nature,
+                        "cwe_id": target_id
+                    })
+
+        if cwe_id and name:
+            entries.append(CWEEntry(
+                id=cwe_id,
+                name=name,
+                description=description[:500] if description else "",
+                related_weaknesses=related
+            ))
+
+    logger.info("Parsed %d CWE entries from XML", len(entries))
+    return entries
+
+
+def load_cwe_data() -> List[CWEEntry]:
+    """Load CWE data from XML dataset, falling back to built-in list.
+
+    Attempts to download and parse the official MITRE CWE XML.
+    If the XML is already cached locally, parses it directly.
+    Falls back to the built-in COMMON_CWES on any failure.
+    """
+    global _xml_cwe_data
+
+    if _xml_cwe_data is not None:
+        return _xml_cwe_data
+
+    # Check for already-downloaded XML
+    data_dir = os.path.dirname(CWE_XML_ZIP_PATH)
+    existing_xml = None
+    if os.path.isdir(data_dir):
+        for fname in os.listdir(data_dir):
+            if fname.startswith("cwec_") and fname.endswith(".xml"):
+                existing_xml = os.path.join(data_dir, fname)
+                break
+
+    xml_path = existing_xml or _download_cwe_xml()
+
+    if xml_path and os.path.isfile(xml_path):
+        try:
+            _xml_cwe_data = _parse_cwe_xml(xml_path)
+            if _xml_cwe_data:
+                return _xml_cwe_data
+        except Exception as exc:
+            logger.warning("CWE XML parse failed: %s", exc)
+
+    # Fallback to built-in data
+    logger.info("Using built-in CWE reference data (%d entries)",
+                len(COMMON_CWES))
+    _xml_cwe_data = list(COMMON_CWES)
+    return _xml_cwe_data
+
+
+def get_cwe_data() -> List[CWEEntry]:
+    """Return the CWE dataset (from XML or built-in fallback).
+
+    Returns a copy to prevent mutation of the cached data.
+    """
+    return list(load_cwe_data())
 
 
 async def fetch_cwe_from_nvd(cwe_id: str) -> Optional[CWEEntry]:
-    """Look up a CWE by ID. Checks built-in data first,
+    """Look up a CWE by ID. Checks loaded data first,
     then falls back to NVD API for unknown CWEs.
     """
-    # Check built-in data
-    for cwe in COMMON_CWES:
+    # Check loaded CWE data (XML or built-in)
+    data = load_cwe_data()
+    for cwe in data:
         if cwe.id == cwe_id:
             return cwe
 
