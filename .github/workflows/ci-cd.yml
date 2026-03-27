@@ -235,6 +235,9 @@ jobs:
   docker:
     name: Docker Build & Push
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
     needs: [lint, sast, sca, secrets, sbom, test]
     if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
     steps:
@@ -259,12 +262,52 @@ jobs:
             type=raw,value=latest
             type=sha,prefix=,format=short
 
-      - name: Build and push Docker image
+      - name: Build Docker image
         uses: docker/build-push-action@v5
         with:
           context: .
-          push: true
+          load: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      - name: Trivy image scan (table)
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ secrets.DOCKERHUB_USERNAME }}/puresecure-cve-explorer:latest
+          format: table
+          exit-code: '0'
+          severity: CRITICAL,HIGH
+          output: trivy-report.txt
+
+      - name: Trivy image scan (SARIF)
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ secrets.DOCKERHUB_USERNAME }}/puresecure-cve-explorer:latest
+          format: sarif
+          exit-code: '0'
+          severity: CRITICAL,HIGH
+          output: trivy-results.sarif
+
+      - name: Upload Trivy SARIF to GitHub Security
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy-results.sarif
+          category: container-scanning
+
+      - name: Upload Trivy scan report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: trivy-report
+          path: |
+            trivy-report.txt
+            trivy-results.sarif
+
+      - name: Push Docker image
+        run: |
+          for tag in $(echo "${{ steps.meta.outputs.tags }}" | tr ',' '\n'); do
+            docker push "$tag"
+          done
