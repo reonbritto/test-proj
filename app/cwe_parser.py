@@ -16,7 +16,7 @@ from typing import List, Optional
 
 import defusedxml.ElementTree as ET
 
-from .models import CWEEntry
+from .models import CWEEntry, Consequence, Mitigation, DetectionMethod
 from . import cache
 
 logger = logging.getLogger(__name__)
@@ -25,7 +25,9 @@ CWE_XML_URL = "https://cwe.mitre.org/data/xml/cwec_latest.xml.zip"
 CWE_XML_ZIP_PATH = os.path.join(
     os.path.dirname(__file__), "..", "data", "cwec_latest.xml.zip"
 )
-CWE_XML_NS = {"cwe": "http://cwe.mitre.org/cwe-6"}
+CWE_XML_NS = {"cwe": "http://cwe.mitre.org/cwe-7"}
+# Fallback for older XML versions
+CWE_XML_NS_V6 = {"cwe": "http://cwe.mitre.org/cwe-6"}
 NVD_CWE_URL = "https://services.nvd.nist.gov/rest/json/cves/2.0"
 
 # Module-level cache for parsed XML data (populated once)
@@ -197,35 +199,69 @@ def _download_cwe_xml() -> Optional[str]:
         return None
 
 
+def _get_all_text(elem) -> str:
+    """Recursively extract all text content from an XML element."""
+    parts = []
+    if elem.text:
+        parts.append(elem.text.strip())
+    for child in elem:
+        parts.append(_get_all_text(child))
+        if child.tail:
+            parts.append(child.tail.strip())
+    return " ".join(p for p in parts if p)
+
+
+def _detect_namespace(root) -> dict:
+    """Detect the CWE XML namespace from the root element tag."""
+    tag = root.tag
+    if tag.startswith("{"):
+        ns_uri = tag.split("}")[0].lstrip("{")
+        return {"cwe": ns_uri}
+    return CWE_XML_NS
+
+
 def _parse_cwe_xml(xml_path: str) -> List[CWEEntry]:
     """Parse the CWE XML file using defusedxml (XXE-safe).
 
     Extracts Weakness elements with their ID, Name, Description,
-    and Related_Weaknesses (parent/child/peer relationships).
+    Related_Weaknesses, Common_Consequences, Potential_Mitigations,
+    Detection_Methods, Affected_Resources, Taxonomy_Mappings,
+    and Applicable_Platforms.
     """
     tree = ET.parse(xml_path)
     root = tree.getroot()
+    ns = _detect_namespace(root)
 
-    weaknesses = root.findall(".//cwe:Weakness", CWE_XML_NS)
+    weaknesses = root.findall(".//cwe:Weakness", ns)
     entries = []
 
     for weakness in weaknesses:
         cwe_id = weakness.get("ID", "")
         name = weakness.get("Name", "")
+        abstraction = weakness.get("Abstraction", "")
+        status = weakness.get("Status", "")
 
-        desc_elem = weakness.find("cwe:Description", CWE_XML_NS)
+        desc_elem = weakness.find("cwe:Description", ns)
         description = ""
-        if desc_elem is not None and desc_elem.text:
-            description = desc_elem.text.strip()
+        if desc_elem is not None:
+            description = _get_all_text(desc_elem)
 
-        # Extract relationship data (ChildOf, ParentOf, PeerOf, etc.)
+        # Extended description
+        ext_desc_elem = weakness.find(
+            "cwe:Extended_Description", ns
+        )
+        extended_description = ""
+        if ext_desc_elem is not None:
+            extended_description = _get_all_text(ext_desc_elem)
+
+        # Related weaknesses
         related = []
         rel_weaknesses = weakness.find(
-            "cwe:Related_Weaknesses", CWE_XML_NS
+            "cwe:Related_Weaknesses", ns
         )
         if rel_weaknesses is not None:
             for rel in rel_weaknesses.findall(
-                "cwe:Related_Weakness", CWE_XML_NS
+                "cwe:Related_Weakness", ns
             ):
                 nature = rel.get("Nature", "")
                 target_id = rel.get("CWE_ID", "")
@@ -235,12 +271,172 @@ def _parse_cwe_xml(xml_path: str) -> List[CWEEntry]:
                         "cwe_id": target_id
                     })
 
+        # Common consequences
+        consequences = []
+        cons_section = weakness.find(
+            "cwe:Common_Consequences", ns
+        )
+        if cons_section is not None:
+            for cons in cons_section.findall(
+                "cwe:Consequence", ns
+            ):
+                scope_elem = cons.find("cwe:Scope", ns)
+                impact_elem = cons.find("cwe:Impact", ns)
+                likelihood_elem = cons.find("cwe:Likelihood", ns)
+                if scope_elem is not None and impact_elem is not None:
+                    consequences.append(Consequence(
+                        scope=scope_elem.text.strip()
+                        if scope_elem.text else "",
+                        impact=impact_elem.text.strip()
+                        if impact_elem.text else "",
+                        likelihood=likelihood_elem.text.strip()
+                        if likelihood_elem is not None
+                        and likelihood_elem.text else None,
+                    ))
+
+        # Potential mitigations
+        mitigations = []
+        mit_section = weakness.find(
+            "cwe:Potential_Mitigations", ns
+        )
+        if mit_section is not None:
+            for mit in mit_section.findall(
+                "cwe:Mitigation", ns
+            ):
+                phase_elem = mit.find("cwe:Phase", ns)
+                mit_desc_elem = mit.find("cwe:Description", ns)
+                effect_elem = mit.find("cwe:Effectiveness", ns)
+                if mit_desc_elem is not None:
+                    mitigations.append(Mitigation(
+                        phase=phase_elem.text.strip()
+                        if phase_elem is not None
+                        and phase_elem.text else "General",
+                        description=_get_all_text(mit_desc_elem),
+                        effectiveness=effect_elem.text.strip()
+                        if effect_elem is not None
+                        and effect_elem.text else None,
+                    ))
+
+        # Detection methods
+        detections = []
+        det_section = weakness.find(
+            "cwe:Detection_Methods", ns
+        )
+        if det_section is not None:
+            for det in det_section.findall(
+                "cwe:Detection_Method", ns
+            ):
+                method_elem = det.find("cwe:Method", ns)
+                det_desc_elem = det.find("cwe:Description", ns)
+                effect_elem = det.find("cwe:Effectiveness", ns)
+                if method_elem is not None and det_desc_elem is not None:
+                    detections.append(DetectionMethod(
+                        method=method_elem.text.strip()
+                        if method_elem.text else "",
+                        description=_get_all_text(det_desc_elem),
+                        effectiveness=effect_elem.text.strip()
+                        if effect_elem is not None
+                        and effect_elem.text else None,
+                    ))
+
+        # Affected resources
+        affected_resources = []
+        res_section = weakness.find(
+            "cwe:Affected_Resources", ns
+        )
+        if res_section is not None:
+            for res in res_section.findall(
+                "cwe:Affected_Resource", ns
+            ):
+                if res.text:
+                    affected_resources.append(res.text.strip())
+
+        # Taxonomy mappings (OWASP, CERT, etc.)
+        taxonomy_mappings = []
+        tax_section = weakness.find(
+            "cwe:Taxonomy_Mappings", ns
+        )
+        if tax_section is not None:
+            for mapping in tax_section.findall(
+                "cwe:Taxonomy_Mapping", ns
+            ):
+                tax_name = mapping.get("Taxonomy_Name", "")
+                entry_name_elem = mapping.find(
+                    "cwe:Entry_Name", ns
+                )
+                entry_id_elem = mapping.find(
+                    "cwe:Entry_ID", ns
+                )
+                if tax_name:
+                    taxonomy_mappings.append({
+                        "taxonomy": tax_name,
+                        "entry_id": entry_id_elem.text.strip()
+                        if entry_id_elem is not None
+                        and entry_id_elem.text else "",
+                        "entry_name": entry_name_elem.text.strip()
+                        if entry_name_elem is not None
+                        and entry_name_elem.text else "",
+                    })
+
+        # Applicable platforms (languages, technologies)
+        applicable_platforms = []
+        plat_section = weakness.find(
+            "cwe:Applicable_Platforms", ns
+        )
+        if plat_section is not None:
+            for lang in plat_section.findall(
+                "cwe:Language", ns
+            ):
+                lang_name = lang.get("Name", lang.get("Class", ""))
+                if lang_name:
+                    applicable_platforms.append({
+                        "type": "Language",
+                        "name": lang_name,
+                        "prevalence": lang.get("Prevalence", ""),
+                    })
+            for tech in plat_section.findall(
+                "cwe:Technology", ns
+            ):
+                tech_name = tech.get("Name", tech.get("Class", ""))
+                if tech_name:
+                    applicable_platforms.append({
+                        "type": "Technology",
+                        "name": tech_name,
+                        "prevalence": tech.get("Prevalence", ""),
+                    })
+
+        # Related attack patterns (CAPEC IDs)
+        related_attack_patterns = []
+        rap_section = weakness.find(
+            "cwe:Related_Attack_Patterns", ns
+        )
+        if rap_section is not None:
+            for rap in rap_section.findall(
+                "cwe:Related_Attack_Pattern", ns
+            ):
+                capec_id = rap.get("CAPEC_ID", "")
+                if capec_id:
+                    related_attack_patterns.append(capec_id)
+
         if cwe_id and name:
             entries.append(CWEEntry(
                 id=cwe_id,
                 name=name,
                 description=description[:500] if description else "",
-                related_weaknesses=related
+                abstraction=abstraction or None,
+                status=status or None,
+                extended_description=(
+                    extended_description[:2000]
+                    if extended_description else None
+                ),
+                common_consequences=consequences,
+                potential_mitigations=mitigations,
+                detection_methods=detections,
+                affected_resources=affected_resources,
+                taxonomy_mappings=taxonomy_mappings,
+                related_weaknesses=related,
+                applicable_platforms=applicable_platforms,
+                related_attack_patterns=related_attack_patterns,
             ))
 
     logger.info("Parsed %d CWE entries from XML", len(entries))

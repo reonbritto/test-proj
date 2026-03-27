@@ -67,7 +67,7 @@
         const loading = document.getElementById('cweLoading');
 
         try {
-            const data = await fetchAPI('/api/cwe?limit=30');
+            const data = await fetchAPI('/api/cwe/featured');
             loading.style.display = 'none';
 
             if (data.length === 0) {

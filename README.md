@@ -24,7 +24,9 @@ The backend is built with **FastAPI** and serves a lightweight **vanilla JavaScr
 
 - **Real-time CVE Search** -- Debounced autocomplete suggestions with keyword, CWE, and severity filters
 - **Detailed CVE Views** -- CVSS v2.0 and v3.1 scores with color-coded severity badges
-- **CWE Classification Mapping** -- 37 built-in weakness definitions plus live NVD API fallback
+- **Rich CWE Detail Pages** -- Full MITRE CWE data including consequences, mitigations, detection methods, taxonomy mappings, applicable platforms, and abstraction levels
+- **Full CWE XML Dataset** -- Parses 969+ weakness definitions from the official MITRE CWE XML with auto-detected namespace versioning
+- **Curated Homepage** -- 30 featured CWEs covering OWASP Top 10, supply chain attacks, memory safety, and modern threat categories
 - **Severity Filtering** -- Filter by CRITICAL, HIGH, MEDIUM, or LOW
 - **Analytics Dashboard** -- Severity distribution, top CWEs, and risk scoring
 - **Azure Entra ID Authentication** -- JWT-based auth via MSAL.js and Microsoft JWKS
@@ -32,9 +34,11 @@ The backend is built with **FastAPI** and serves a lightweight **vanilla JavaScr
 - **Grafana Dashboards** -- Pre-provisioned dashboard with 18 panels across 5 sections
 - **Locust Load Testing** -- Pre-built scenarios covering all API endpoints
 - **Intelligent Caching** -- SQLite cache with 24-hour TTL and startup cleanup
+- **Kubernetes Ready** -- Full Docker Desktop Kubernetes manifests with Ingress, ConfigMaps, Secrets, and AKS migration guide
 - **Request Logging** -- Structured logs with method, path, status, and duration
 - **Input Validation** -- Regex-based CVE/CWE ID validation and query sanitization
 - **XSS Prevention** -- HTML escaping via `textContent` and `encodeURIComponent`
+- **CI/CD Security Pipeline** -- Lint, SAST, SCA, secrets scan, SBOM, Trivy container scan, and Docker push
 - **Dockerized** -- Single `docker compose up` deploys the full stack
 
 ---
@@ -150,7 +154,7 @@ cve-new-bri/
 │   ├── auth.py                         # Microsoft Entra ID JWT validation (JWKS)
 │   ├── metrics.py                      # Prometheus middleware (count, latency, gauge)
 │   ├── nvd_client.py                   # NVD API 2.0 client with rate limiting
-│   ├── cwe_parser.py                   # 37 built-in CWE definitions + NVD fallback
+│   ├── cwe_parser.py                   # Full MITRE CWE XML parser (969+ weaknesses)
 │   ├── cache.py                        # SQLite cache (WAL mode, 24h TTL, cleanup)
 │   ├── analytics.py                    # Top CWEs, risk scoring
 │   ├── security.py                     # Input validation (CVE/CWE regex, sanitization)
@@ -158,7 +162,7 @@ cve-new-bri/
 │       ├── index.html                  # Dashboard homepage
 │       ├── search.html                 # Search with filters and pagination
 │       ├── cve.html                    # CVE detail view (CVSS, CWEs, products)
-│       ├── cwe.html                    # CWE detail view with associated CVEs
+│       ├── cwe.html                    # CWE detail view (consequences, mitigations, detections)
 │       ├── login.html                  # Microsoft Entra ID login page
 │       ├── 404.html                    # Custom 404 error page
 │       ├── style.css                   # Design system with CSS variables
@@ -191,8 +195,16 @@ cve-new-bri/
 │   ├── test_nvd_client.py              # NVD response parser tests
 │   └── test_security.py               # Input validation tests
 ├── data/                               # Auto-created: SQLite cache database
+├── k8s/                               # Kubernetes deployment manifests
+│   ├── namespace.yaml                 # puresecure namespace
+│   ├── ingress.yaml                   # NGINX Ingress (host-based routing)
+│   ├── setup.sh                      # One-command Kubernetes deployment
+│   ├── app/                           # Web app: Deployment, Service, ConfigMap, Secret, PVC
+│   ├── prometheus/                    # Prometheus: Deployment, Service, ConfigMap
+│   └── grafana/                       # Grafana: Deployment, Service, ConfigMaps, PVC
 ├── docs/
-│   └── REPORT.md                       # Security design report
+│   ├── REPORT.md                       # Security design report
+│   └── kubernetes-deployment.md        # K8s deployment guide (Docker Desktop + AKS)
 ├── .env.example                        # Environment variable template
 ├── Dockerfile                          # Multi-stage Python 3.10-slim image
 ├── docker-compose.yml                  # Full stack: web, prometheus, grafana, locust
@@ -337,6 +349,7 @@ The auth module (`app/auth.py`) uses the Microsoft common JWKS endpoint with iss
 | Method | Endpoint | Description | Parameters |
 |--------|----------|-------------|------------|
 | `GET` | `/api/cwe` | List or search CWEs | `query`, `limit` (default: 10, max: 100) |
+| `GET` | `/api/cwe/featured` | Curated well-known and trending CWEs | -- |
 | `GET` | `/api/cwe/suggestions` | Autocomplete suggestions | `q` (required, min 1 char) |
 | `GET` | `/api/cwe/{cwe_id}` | Single CWE detail | Path: numeric ID (e.g., `79`) |
 | `GET` | `/api/cwe/{cwe_id}/cves` | CVEs for a specific CWE | Path: numeric ID |
@@ -647,7 +660,10 @@ All data models are defined in `app/models.py` using Pydantic v2.
 
 | Model | Fields | Purpose |
 |-------|--------|---------|
-| **CWEEntry** | `id`, `name`, `description` | CWE weakness definition |
+| **CWEEntry** | `id`, `name`, `description`, `abstraction`, `status`, `extended_description`, `common_consequences`, `potential_mitigations`, `detection_methods`, `affected_resources`, `taxonomy_mappings`, `applicable_platforms`, `related_weaknesses` | Full CWE weakness definition |
+| **Consequence** | `scope`, `impact`, `likelihood` | CWE consequence (e.g., Confidentiality / Read Memory / High) |
+| **Mitigation** | `phase`, `description`, `effectiveness` | CWE mitigation strategy |
+| **DetectionMethod** | `method`, `description`, `effectiveness` | How to detect the weakness |
 | **CVSSScores** | `v2_score`, `v2_vector`, `v3_score`, `v3_vector`, `v3_severity` | CVSS v2/v3 scoring data |
 | **AffectedProduct** | `vendor`, `product`, `version` | Vulnerable software from CPE |
 | **Reference** | `url`, `source`, `tags` | External advisory links |
@@ -690,7 +706,7 @@ All data models are defined in `app/models.py` using Pydantic v2.
 
 ## CI/CD Pipeline
 
-The project uses a GitHub Actions pipeline (`.github/workflows/ci-cd.yml`) with 8 stages following the shift-left security principle:
+The project uses a GitHub Actions pipeline (`.github/workflows/ci-cd.yml`) with 9 stages following the shift-left security principle:
 
 | Stage | Tool | Purpose |
 |-------|------|---------|
@@ -701,9 +717,11 @@ The project uses a GitHub Actions pipeline (`.github/workflows/ci-cd.yml`) with 
 | 5. Secrets | Gitleaks | Detect committed secrets in git history |
 | 6. SBOM | CycloneDX | Software Bill of Materials (JSON + XML) |
 | 7. Test | pytest | Unit and integration tests with coverage |
-| 8. Docker | Docker Build & Push | Build image and push to DockerHub |
+| 8. Docker Build | Docker Buildx | Build container image with GitHub Actions cache |
+| 9. Trivy Scan | Trivy | Container vulnerability scanning (SARIF upload to GitHub Security) |
+| 10. Docker Push | Docker Push | Push to DockerHub on main/master branch |
 
-Stages 1--7 run in parallel on every push and pull request. Stage 8 runs only on push to `main`/`master` after all other stages pass.
+Stages 1--7 run in parallel on every push and pull request. Stages 8--10 run sequentially on push to `main`/`master` after all other stages pass.
 
 ### DockerHub Deployment
 
@@ -734,6 +752,31 @@ pytest tests/ -v --tb=short --cov=app
 # Docker build (local)
 docker build -t puresecure-cve-explorer .
 ```
+
+---
+
+## Kubernetes Deployment
+
+The project includes full Kubernetes manifests for local development (Docker Desktop) and production (AKS).
+
+```bash
+# Quick start with Docker Desktop Kubernetes
+chmod +x k8s/setup.sh
+./k8s/setup.sh
+
+# Or manually
+# Ensure Kubernetes is enabled in Docker Desktop settings
+kubectl apply -f k8s/namespace.yaml
+kubectl create secret generic app-secrets -n puresecure \
+  --from-literal=SERVICE_API_KEY="your-key" \
+  --from-literal=GF_ADMIN_PASSWORD="admin"
+kubectl apply -f k8s/app/ -f k8s/prometheus/ -f k8s/grafana/ -f k8s/ingress.yaml
+
+# Access via port-forward
+kubectl port-forward svc/web 8000:8000 -n puresecure
+```
+
+See [docs/kubernetes-deployment.md](docs/kubernetes-deployment.md) for the full step-by-step guide, troubleshooting, and AKS migration notes.
 
 ---
 

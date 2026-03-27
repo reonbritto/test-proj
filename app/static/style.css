@@ -838,6 +838,274 @@ a:hover { text-decoration: underline; }
     white-space: nowrap;
 }
 
+/* ═══════════════ CWE DETAIL PAGE — ENHANCED SECTIONS ═══════════════ */
+
+/* Header badges row */
+.cwe-header-badges {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+    flex-wrap: wrap;
+}
+.cwe-abstraction-badge, .cwe-status-badge {
+    display: inline-block;
+    font-size: 0.7rem;
+    font-weight: 600;
+    font-family: 'SF Mono', 'Consolas', monospace;
+    border-radius: 6px;
+    padding: 0.22rem 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    line-height: 1;
+    white-space: nowrap;
+    cursor: help;
+}
+.abstraction-pillar { color: #b91c1c; background: rgba(185,28,28,0.08); border: 1px solid rgba(185,28,28,0.2); }
+.abstraction-class { color: #c2410c; background: rgba(194,65,12,0.08); border: 1px solid rgba(194,65,12,0.2); }
+.abstraction-base { color: #0369a1; background: rgba(3,105,161,0.08); border: 1px solid rgba(3,105,161,0.2); }
+.abstraction-variant { color: #6d28d9; background: rgba(109,40,217,0.08); border: 1px solid rgba(109,40,217,0.2); }
+.abstraction-compound { color: #0f766e; background: rgba(15,118,110,0.08); border: 1px solid rgba(15,118,110,0.2); }
+.status-stable { color: #15803d; background: rgba(21,128,61,0.08); border: 1px solid rgba(21,128,61,0.2); }
+.status-incomplete { color: #b45309; background: rgba(180,83,9,0.08); border: 1px solid rgba(180,83,9,0.2); }
+.status-deprecated { color: #991b1b; background: rgba(153,27,27,0.08); border: 1px solid rgba(153,27,27,0.2); }
+.status-draft { color: #6b7280; background: rgba(107,114,128,0.08); border: 1px solid rgba(107,114,128,0.2); }
+
+/* Applicable platforms bar */
+.cwe-platforms-bar {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.65rem 1.1rem;
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius);
+    margin-bottom: 0.85rem;
+    flex-wrap: wrap;
+}
+.platforms-label {
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    white-space: nowrap;
+}
+.platforms-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+}
+.platform-tag {
+    display: inline-block;
+    font-size: 0.72rem;
+    font-weight: 600;
+    border-radius: 6px;
+    padding: 0.2rem 0.6rem;
+    white-space: nowrap;
+    line-height: 1.2;
+}
+.platform-lang {
+    color: #0369a1;
+    background: rgba(3,105,161,0.08);
+    border: 1px solid rgba(3,105,161,0.18);
+}
+.platform-tech {
+    color: #6d28d9;
+    background: rgba(109,40,217,0.06);
+    border: 1px solid rgba(109,40,217,0.18);
+}
+
+/* Extended description */
+.ext-description {
+    color: var(--text-secondary);
+    font-size: 0.82rem;
+    line-height: 1.65;
+    margin-top: 0.75rem;
+    padding-top: 0.75rem;
+    border-top: 1px dashed var(--border-color);
+}
+
+/* ── Consequences table ── */
+.consequences-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    font-size: 0.82rem;
+}
+.consequences-table th {
+    text-align: left;
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    padding: 0.55rem 1rem;
+    border-bottom: 2px solid var(--border-color);
+    background: var(--bg-primary);
+}
+.consequences-table td {
+    padding: 0.65rem 1rem;
+    border-bottom: 1px solid var(--border-color);
+    color: var(--text-primary);
+    vertical-align: middle;
+}
+.consequences-table tr:last-child td {
+    border-bottom: none;
+}
+.consequences-table tr:hover td {
+    background: rgba(0,0,0,0.015);
+}
+.scope-tag {
+    display: inline-block;
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: #b91c1c;
+    background: rgba(185,28,28,0.06);
+    border: 1px solid rgba(185,28,28,0.15);
+    border-radius: 6px;
+    padding: 0.18rem 0.55rem;
+    white-space: nowrap;
+}
+.likelihood-val {
+    display: inline-block;
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    padding: 0.15rem 0.5rem;
+    border-radius: 6px;
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
+}
+.likelihood-high { color: #b91c1c; border-color: rgba(185,28,28,0.2); background: rgba(185,28,28,0.05); }
+.likelihood-medium { color: #b45309; border-color: rgba(180,83,9,0.2); background: rgba(180,83,9,0.05); }
+.likelihood-low { color: #15803d; border-color: rgba(21,128,61,0.2); background: rgba(21,128,61,0.05); }
+
+/* ── Mitigations & Detections ── */
+.mitigation-item, .detection-item {
+    padding: 0.85rem 0;
+    border-bottom: 1px solid var(--border-color);
+}
+.mitigation-item:last-child, .detection-item:last-child {
+    border-bottom: none;
+    padding-bottom: 0;
+}
+.mitigation-item:first-child, .detection-item:first-child {
+    padding-top: 0;
+}
+.mitigation-header, .detection-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+    flex-wrap: wrap;
+}
+.phase-badge, .method-badge {
+    display: inline-block;
+    font-size: 0.68rem;
+    font-weight: 700;
+    color: #0369a1;
+    background: rgba(3,105,161,0.08);
+    border: 1px solid rgba(3,105,161,0.18);
+    border-radius: 6px;
+    padding: 0.2rem 0.6rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    white-space: nowrap;
+    line-height: 1;
+}
+.method-badge {
+    color: #6d28d9;
+    background: rgba(109,40,217,0.08);
+    border: 1px solid rgba(109,40,217,0.18);
+}
+.effectiveness-badge {
+    display: inline-block;
+    font-size: 0.66rem;
+    font-weight: 600;
+    border-radius: 6px;
+    padding: 0.18rem 0.5rem;
+    color: var(--text-muted);
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    white-space: nowrap;
+    line-height: 1;
+}
+.effectiveness-high { color: #15803d; border-color: rgba(21,128,61,0.3); background: rgba(21,128,61,0.06); }
+.effectiveness-moderate { color: #b45309; border-color: rgba(180,83,9,0.3); background: rgba(180,83,9,0.06); }
+.effectiveness-limited { color: #991b1b; border-color: rgba(153,27,27,0.3); background: rgba(153,27,27,0.06); }
+.effectiveness-soar-partial { color: #0369a1; border-color: rgba(3,105,161,0.3); background: rgba(3,105,161,0.06); }
+.effectiveness-opportunistic { color: #b45309; border-color: rgba(180,83,9,0.3); background: rgba(180,83,9,0.06); }
+.mitigation-desc, .detection-desc {
+    font-size: 0.82rem;
+    color: var(--text-secondary);
+    line-height: 1.6;
+    margin: 0;
+    padding-left: 0.1rem;
+}
+
+/* ── Affected resources ── */
+.resource-tag {
+    display: inline-block;
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: #b45309;
+    background: rgba(180,83,9,0.06);
+    border: 1px solid rgba(180,83,9,0.18);
+    border-radius: 6px;
+    padding: 0.2rem 0.6rem;
+    white-space: nowrap;
+}
+
+/* ── Taxonomy table ── */
+.taxonomy-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    font-size: 0.82rem;
+    table-layout: fixed;
+}
+.taxonomy-table th {
+    text-align: left;
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    padding: 0.55rem 1rem;
+    border-bottom: 2px solid var(--border-color);
+    background: var(--bg-primary);
+}
+.taxonomy-table th:nth-child(1) { width: 35%; }
+.taxonomy-table th:nth-child(2) { width: 18%; }
+.taxonomy-table th:nth-child(3) { width: 47%; }
+.taxonomy-table td {
+    padding: 0.6rem 1rem;
+    border-bottom: 1px solid var(--border-color);
+    color: var(--text-primary);
+    vertical-align: middle;
+    word-wrap: break-word;
+}
+.taxonomy-table tr:last-child td {
+    border-bottom: none;
+}
+.taxonomy-table tr:hover td {
+    background: rgba(0,0,0,0.015);
+}
+.taxonomy-name {
+    display: inline-block;
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: #0f766e;
+    background: rgba(15,118,110,0.06);
+    border: 1px solid rgba(15,118,110,0.18);
+    border-radius: 6px;
+    padding: 0.18rem 0.55rem;
+    white-space: nowrap;
+}
+
+/* ═══════════════ CVE DETAIL PAGE ═══════════════ */
+
 .cvss-panel {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
@@ -1246,4 +1514,531 @@ a:hover { text-decoration: underline; }
     .nav-dropdown-menu { background: var(--bg-secondary); border-color: var(--border-color); }
     .nav-dropdown-menu a { color: var(--text-primary); }
     .suggestions-dropdown { background: var(--bg-secondary); border-color: var(--border-color); }
+    .attack-matrix-tech-cell { background: var(--bg-elevated); border-color: var(--border-color); }
+    .attack-matrix-tech-cell:hover { background: var(--bg-secondary); }
+    .attack-matrix-tech-cell.has-cwe-mapping { background: rgba(79, 70, 229, 0.12); }
+    .attack-matrix-tech-cell.has-cwe-mapping:hover { background: rgba(79, 70, 229, 0.18); }
+    .attack-detail-panel { background: var(--bg-card); border-color: var(--border-color); }
+    .attack-technique-card { background: var(--bg-elevated); border-color: var(--border-color); }
+    .attack-technique-card:hover { background: var(--bg-secondary); }
+    .attack-sub-chip, .attack-cwe-chip { background: var(--bg-elevated); border-color: var(--border-color); }
+    .attack-stats-bar { background: var(--bg-card); border-color: var(--border-color); }
+    .attack-toggle-switch { background: #4b5563; }
+    .attack-legend-unmapped { background: var(--bg-elevated); }
+}
+
+/* ========== MITRE ATT&CK Styles ========== */
+
+/* ATT&CK section on CVE detail page */
+.attack-summary-row {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    margin-bottom: 0.5rem;
+}
+.attack-summary-count {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+.attack-summary-tactics {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.3rem;
+}
+.attack-cwe-sources {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    margin-top: 0.25rem;
+}
+.attack-cwe-source-chip {
+    display: inline-block;
+    padding: 0.2rem 0.55rem;
+    border-radius: 5px;
+    font-size: 0.72rem;
+    background: rgba(3, 105, 161, 0.08);
+    color: #0369a1;
+    border: 1px solid rgba(3, 105, 161, 0.2);
+    cursor: pointer;
+    transition: background 0.15s;
+}
+.attack-cwe-source-chip:hover {
+    background: rgba(3, 105, 161, 0.15);
+}
+.attack-expand-btn {
+    background: none;
+    border: 1px solid var(--border-color, #e2e8f0);
+    border-radius: 6px;
+    padding: 0.3rem;
+    cursor: pointer;
+    color: var(--text-secondary);
+    transition: transform 0.2s, color 0.15s;
+    display: inline-flex;
+    align-items: center;
+}
+.attack-expand-btn:hover { color: var(--text-primary); }
+.attack-expand-btn-open { transform: rotate(180deg); }
+.attack-detail-expand {
+    margin-top: 1rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid var(--border-color, #e2e8f0);
+}
+@keyframes attackHighlight {
+    0% { box-shadow: 0 0 0 0 rgba(79, 70, 229, 0.3); }
+    50% { box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.15); }
+    100% { box-shadow: 0 0 0 0 rgba(79, 70, 229, 0); }
+}
+.attack-section-highlight {
+    animation: attackHighlight 1.5s ease-out;
+}
+.attack-subtitle {
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+    margin: -0.25rem 0 1rem 0;
+}
+.attack-count-badge {
+    background: rgba(79, 70, 229, 0.1);
+    color: #4f46e5;
+    border: 1px solid rgba(79, 70, 229, 0.2);
+    padding: 0.2rem 0.6rem;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+.attack-tactics-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+}
+.attack-tactic-group {
+    border-radius: 8px;
+    overflow: hidden;
+}
+.attack-tactic-header {
+    padding: 0.5rem 0.75rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+.attack-tactic-name {
+    font-weight: 600;
+    font-size: 0.85rem;
+    color: var(--text-primary);
+}
+.attack-tactic-id {
+    font-size: 0.7rem;
+    color: var(--text-secondary);
+    font-family: 'SF Mono', 'Consolas', monospace;
+}
+.attack-technique-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    padding: 0.75rem;
+}
+.attack-technique-card {
+    display: inline-flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    padding: 0.45rem 0.65rem;
+    border-radius: 6px;
+    background: var(--bg-elevated, #f8fafc);
+    border: 1px solid var(--border-color, #e2e8f0);
+    text-decoration: none;
+    color: var(--text-primary);
+    transition: background 0.15s, box-shadow 0.15s;
+    cursor: pointer;
+    max-width: 220px;
+}
+.attack-technique-card:hover {
+    background: var(--bg-secondary, #f1f5f9);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+.attack-subtechnique {
+    padding-left: 1rem;
+    border-left: 2px solid var(--border-color, #e2e8f0);
+}
+.attack-tech-id {
+    font-size: 0.7rem;
+    font-weight: 600;
+    font-family: 'SF Mono', 'Consolas', monospace;
+    color: #4f46e5;
+}
+.attack-tech-name {
+    font-size: 0.78rem;
+    color: var(--text-primary);
+    line-height: 1.3;
+}
+.attack-capec-ref {
+    margin-top: 1rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid var(--border-color, #e2e8f0);
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+}
+.attack-capec-label {
+    font-weight: 600;
+}
+.attack-capec-link {
+    color: #4f46e5;
+    text-decoration: none;
+    font-family: 'SF Mono', 'Consolas', monospace;
+    font-size: 0.78rem;
+}
+.attack-capec-link:hover { text-decoration: underline; }
+
+/* TTP badge in CVE table */
+.attack-ttp-badge {
+    display: inline-block;
+    background: rgba(79, 70, 229, 0.1);
+    color: #4f46e5;
+    border: 1px solid rgba(79, 70, 229, 0.2);
+    padding: 0.15rem 0.5rem;
+    border-radius: 10px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.15s;
+}
+.attack-ttp-badge:hover {
+    background: rgba(79, 70, 229, 0.2);
+}
+
+/* ========== ATT&CK Matrix Page ========== */
+
+.attack-page-header {
+    text-align: center;
+    padding: 2rem 0 1rem;
+}
+.attack-page-header h1 {
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 0.25rem;
+}
+/* Stats bar */
+.attack-stats-bar {
+    display: flex;
+    justify-content: center;
+    gap: 2rem;
+    margin: 1rem 0 1.25rem;
+    padding: 0.75rem 1.5rem;
+    background: var(--bg-card, #fff);
+    border-radius: 10px;
+    border: 1px solid var(--border-color, #e2e8f0);
+}
+.attack-stat {
+    text-align: center;
+}
+.attack-stat-value {
+    display: block;
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    font-family: 'SF Mono', 'Consolas', monospace;
+}
+.attack-stat-label {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+.attack-stat-highlight .attack-stat-value {
+    color: #4f46e5;
+}
+
+/* Toolbar: search + toggle */
+.attack-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 0.75rem;
+    max-width: 700px;
+    margin-left: auto;
+    margin-right: auto;
+}
+.attack-toolbar .search-input {
+    flex: 1;
+}
+.attack-toggle-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    cursor: pointer;
+    white-space: nowrap;
+    user-select: none;
+}
+.attack-toggle-label input[type="checkbox"] {
+    display: none;
+}
+.attack-toggle-switch {
+    display: inline-block;
+    width: 36px;
+    height: 20px;
+    background: #d1d5db;
+    border-radius: 10px;
+    position: relative;
+    transition: background 0.2s;
+}
+.attack-toggle-switch::after {
+    content: '';
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 16px;
+    height: 16px;
+    background: #fff;
+    border-radius: 50%;
+    transition: transform 0.2s;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.15);
+}
+.attack-toggle-label input:checked + .attack-toggle-switch {
+    background: #4f46e5;
+}
+.attack-toggle-label input:checked + .attack-toggle-switch::after {
+    transform: translateX(16px);
+}
+
+/* Legend */
+.attack-legend {
+    display: flex;
+    justify-content: center;
+    gap: 1.5rem;
+    margin-bottom: 1rem;
+    font-size: 0.78rem;
+    color: var(--text-secondary);
+}
+.attack-legend-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+}
+.attack-legend-swatch {
+    display: inline-block;
+    width: 14px;
+    height: 14px;
+    border-radius: 3px;
+    border: 1px solid var(--border-color, #e2e8f0);
+}
+.attack-legend-mapped {
+    background: rgba(79, 70, 229, 0.12);
+    border-color: rgba(79, 70, 229, 0.35);
+}
+.attack-legend-unmapped {
+    background: var(--bg-card, #fff);
+}
+
+/* Matrix grid */
+.attack-matrix {
+    display: flex;
+    gap: 0.5rem;
+    overflow-x: auto;
+    padding-bottom: 1rem;
+    align-items: flex-start;
+}
+.attack-matrix-column {
+    min-width: 175px;
+    max-width: 210px;
+    flex-shrink: 0;
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid var(--border-color, #e2e8f0);
+}
+.attack-matrix-tactic-header {
+    padding: 0.6rem 0.5rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.2rem;
+}
+.attack-matrix-tactic-name {
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: #fff;
+    text-align: center;
+    line-height: 1.2;
+}
+.attack-matrix-tactic-count {
+    font-size: 0.6rem;
+    color: rgba(255,255,255,0.8);
+}
+.attack-matrix-techniques {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    background: var(--border-color, #e2e8f0);
+}
+.attack-matrix-tech-cell {
+    padding: 0.4rem 0.5rem;
+    background: var(--bg-card, #fff);
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
+    border-left: 3px solid transparent;
+}
+.attack-matrix-tech-cell:hover {
+    background: var(--bg-elevated, #f8fafc);
+}
+.attack-matrix-tech-cell.active {
+    background: rgba(79, 70, 229, 0.06);
+    border-left-color: #4f46e5;
+}
+
+/* CWE-mapped technique highlighting */
+.attack-matrix-tech-cell.has-cwe-mapping {
+    background: rgba(79, 70, 229, 0.06);
+    border-left-color: #4f46e5;
+}
+.attack-matrix-tech-cell.has-cwe-mapping:hover {
+    background: rgba(79, 70, 229, 0.12);
+}
+.attack-matrix-tech-cell.has-cwe-mapping .attack-matrix-tech-id {
+    color: #4f46e5;
+}
+.attack-matrix-tech-cell.has-cwe-mapping .attack-matrix-tech-name {
+    font-weight: 600;
+}
+
+.attack-cell-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+.attack-cwe-count-dot {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 18px;
+    height: 18px;
+    border-radius: 9px;
+    background: #4f46e5;
+    color: #fff;
+    font-size: 0.6rem;
+    font-weight: 700;
+    padding: 0 4px;
+    line-height: 1;
+}
+
+.attack-matrix-tech-id {
+    font-size: 0.62rem;
+    font-family: 'SF Mono', 'Consolas', monospace;
+    color: var(--text-secondary);
+}
+.attack-matrix-tech-name {
+    display: block;
+    font-size: 0.72rem;
+    color: var(--text-primary);
+    line-height: 1.3;
+    margin-top: 0.1rem;
+}
+
+/* Technique detail panel */
+.attack-detail-panel {
+    margin-top: 1.5rem;
+    padding: 1.5rem;
+    border-radius: 12px;
+    background: var(--bg-card, #fff);
+    border: 1px solid var(--border-color, #e2e8f0);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+}
+.attack-detail-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 0.75rem;
+}
+.attack-detail-id {
+    font-family: 'SF Mono', 'Consolas', monospace;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #4f46e5;
+}
+.attack-detail-name {
+    font-size: 1.25rem;
+    font-weight: 700;
+    margin: 0.15rem 0 0;
+}
+.attack-detail-tactics {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+    margin-top: 0.4rem;
+}
+.attack-tactic-pill {
+    display: inline-block;
+    padding: 0.15rem 0.5rem;
+    border-radius: 10px;
+    color: #fff;
+    font-size: 0.68rem;
+    font-weight: 600;
+}
+.attack-detail-desc {
+    color: var(--text-secondary);
+    font-size: 0.88rem;
+    line-height: 1.6;
+    margin-bottom: 1rem;
+}
+.attack-close-btn {
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    color: var(--text-secondary);
+    cursor: pointer;
+    padding: 0 0.25rem;
+    line-height: 1;
+}
+.attack-close-btn:hover { color: var(--text-primary); }
+
+.attack-sub-list, .attack-cwe-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+    margin-bottom: 1rem;
+}
+.attack-sub-chip, .attack-cwe-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.35rem 0.65rem;
+    border-radius: 6px;
+    background: var(--bg-elevated, #f8fafc);
+    border: 1px solid var(--border-color, #e2e8f0);
+    font-size: 0.78rem;
+    color: var(--text-primary);
+    text-decoration: none;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+.attack-sub-chip:hover, .attack-cwe-chip:hover {
+    background: var(--bg-secondary, #f1f5f9);
+}
+.attack-sub-chip.has-cwe-mapping {
+    border-color: rgba(79, 70, 229, 0.3);
+    background: rgba(79, 70, 229, 0.06);
+}
+.attack-sub-id {
+    font-family: 'SF Mono', 'Consolas', monospace;
+    font-weight: 600;
+    color: #4f46e5;
+    font-size: 0.72rem;
+}
+.attack-cwe-chip {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.1rem;
+}
+.attack-cwe-chip-id {
+    font-family: 'SF Mono', 'Consolas', monospace;
+    font-weight: 600;
+    color: #4f46e5;
+    font-size: 0.72rem;
+}
+.attack-cwe-chip-name {
+    font-size: 0.72rem;
+    color: var(--text-secondary);
 }

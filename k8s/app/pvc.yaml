@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: cwe-data-pvc
+  namespace: puresecure
+  labels:
+    app: cwe-explorer
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+  # Docker Desktop: uses default "hostpath" StorageClass
+  # AKS: change to storageClassName: managed-csi

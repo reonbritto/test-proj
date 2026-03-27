@@ -2,11 +2,39 @@ from pydantic import BaseModel, field_validator
 from typing import List, Optional
 
 
+class Consequence(BaseModel):
+    scope: str
+    impact: str
+    likelihood: Optional[str] = None
+
+
+class Mitigation(BaseModel):
+    phase: str
+    description: str
+    effectiveness: Optional[str] = None
+
+
+class DetectionMethod(BaseModel):
+    method: str
+    description: str
+    effectiveness: Optional[str] = None
+
+
 class CWEEntry(BaseModel):
     id: str
     name: str
     description: str
+    abstraction: Optional[str] = None
+    status: Optional[str] = None
+    extended_description: Optional[str] = None
+    common_consequences: List[Consequence] = []
+    potential_mitigations: List[Mitigation] = []
+    detection_methods: List[DetectionMethod] = []
+    affected_resources: List[str] = []
+    taxonomy_mappings: List[dict] = []
     related_weaknesses: List[dict] = []
+    applicable_platforms: List[dict] = []
+    related_attack_patterns: List[str] = []
 
     @field_validator("id")
     @classmethod
@@ -101,3 +129,34 @@ class CWERiskScore(BaseModel):
     cve_count: int
     avg_cvss: float
     risk_score: float
+
+
+class AttackTactic(BaseModel):
+    id: str
+    name: str
+    shortname: str
+    description: str
+    url: str
+
+
+class AttackTechnique(BaseModel):
+    id: str
+    name: str
+    description: str
+    tactics: List[str] = []
+    is_subtechnique: bool = False
+    parent_id: Optional[str] = None
+    capec_ids: List[str] = []
+    url: str = ""
+
+
+class AttackMapping(BaseModel):
+    capec_id: str
+    techniques: List[AttackTechnique] = []
+
+
+class CWEAttackResult(BaseModel):
+    cwe_id: str
+    capec_ids: List[str] = []
+    tactics: List[AttackTactic] = []
+    techniques: List[AttackTechnique] = []

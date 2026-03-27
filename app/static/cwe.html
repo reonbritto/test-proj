@@ -17,6 +17,7 @@
         <nav>
             <a href="/">Weaknesses</a>
             <a href="/search.html">Search</a>
+            <a href="/attack.html">ATT&CK</a>
             <div class="nav-dropdown">
                 <button class="nav-dropdown-btn">Services &#9662;</button>
                 <div class="nav-dropdown-menu">
@@ -38,10 +39,14 @@
         </div>
 
         <div id="cweContent" style="display:none;">
-            <!-- Header with ID and MITRE link -->
+            <!-- Header with ID, badges and MITRE link -->
             <div class="cwe-detail-header">
                 <div>
-                    <span id="cweIdBadge" class="cwe-detail-id"></span>
+                    <div class="cwe-header-badges">
+                        <span id="cweIdBadge" class="cwe-detail-id"></span>
+                        <span id="abstractionBadge" class="cwe-abstraction-badge" style="display:none;"></span>
+                        <span id="statusBadge" class="cwe-status-badge" style="display:none;"></span>
+                    </div>
                     <h1 id="cweName" class="cwe-detail-name"></h1>
                 </div>
                 <a id="mitreLink" href="#" target="_blank"
@@ -51,10 +56,49 @@
                 </a>
             </div>
 
+            <!-- Applicable Platforms -->
+            <div id="platformsSection" class="cwe-platforms-bar" style="display:none;">
+                <span class="platforms-label">Applies to:</span>
+                <div id="platformsList" class="platforms-tags"></div>
+            </div>
+
             <!-- Description -->
             <div class="detail-card">
                 <h2>Description</h2>
                 <p id="cweDescription" class="description"></p>
+                <div id="extendedDescription" style="display:none;">
+                    <p id="extDescText" class="ext-description"></p>
+                </div>
+            </div>
+
+            <!-- Common Consequences -->
+            <div id="consequencesSection" class="detail-card" style="display:none;">
+                <h2>Common Consequences</h2>
+                <div id="consequencesList"></div>
+            </div>
+
+            <!-- Potential Mitigations -->
+            <div id="mitigationsSection" class="detail-card" style="display:none;">
+                <h2>Potential Mitigations</h2>
+                <div id="mitigationsList"></div>
+            </div>
+
+            <!-- Detection Methods -->
+            <div id="detectionsSection" class="detail-card" style="display:none;">
+                <h2>Detection Methods</h2>
+                <div id="detectionsList"></div>
+            </div>
+
+            <!-- Affected Resources -->
+            <div id="resourcesSection" class="detail-card" style="display:none;">
+                <h2>Affected Resources</h2>
+                <div id="resourcesList" class="platforms-tags"></div>
+            </div>
+
+            <!-- Taxonomy Mappings -->
+            <div id="taxonomySection" class="detail-card" style="display:none;">
+                <h2>Taxonomy Mappings</h2>
+                <div id="taxonomyList"></div>
             </div>
 
             <!-- Related Weaknesses -->

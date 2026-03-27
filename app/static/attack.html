@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MITRE ATT&CK Matrix - PureSecure</title>
+    <link rel="stylesheet" href="/style.css?v=2">
+</head>
+<body>
+    <header class="navbar">
+        <a href="/" class="logo">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+            </svg>
+            PureSecure <span>CWE Explorer</span>
+        </a>
+        <nav>
+            <a href="/">Weaknesses</a>
+            <a href="/search.html">Search</a>
+            <a href="/attack.html" class="nav-active">ATT&CK</a>
+            <div class="nav-dropdown">
+                <button class="nav-dropdown-btn">Services &#9662;</button>
+                <div class="nav-dropdown-menu">
+                    <span class="dropdown-section">Monitoring</span>
+                    <a href="http://localhost:3000" target="_blank">Grafana</a>
+                    <a href="http://localhost:9090" target="_blank">Prometheus</a>
+                    <a href="http://localhost:8089" target="_blank">Locust</a>
+                    <span class="dropdown-section">API Endpoints</span>
+                    <a href="/docs" target="_blank">Swagger Docs</a>
+                </div>
+            </div>
+        </nav>
+    </header>
+
+    <main class="container">
+        <div class="attack-page-header">
+            <h1>MITRE ATT&CK Matrix</h1>
+        </div>
+
+        <!-- Stats bar -->
+        <div class="attack-stats-bar">
+            <div class="attack-stat">
+                <span class="attack-stat-value" id="statsTotal">-</span>
+                <span class="attack-stat-label">Techniques</span>
+            </div>
+            <div class="attack-stat attack-stat-highlight">
+                <span class="attack-stat-value" id="statsMapped">-</span>
+                <span class="attack-stat-label">Mapped to CWEs</span>
+            </div>
+            <div class="attack-stat">
+                <span class="attack-stat-value" id="statsCWEs">-</span>
+                <span class="attack-stat-label">CWE Weaknesses</span>
+            </div>
+        </div>
+
+        <!-- Search and filter bar -->
+        <div class="attack-toolbar">
+            <input type="text" id="attackSearch" placeholder="Search techniques by name or ID (e.g., T1059, Phishing)..." class="search-input">
+            <label class="attack-toggle-label">
+                <input type="checkbox" id="mappedOnlyToggle">
+                <span class="attack-toggle-switch"></span>
+                <span>Show CWE-mapped only</span>
+            </label>
+        </div>
+
+        <!-- Legend -->
+        <div class="attack-legend">
+            <span class="attack-legend-item">
+                <span class="attack-legend-swatch attack-legend-mapped"></span>
+                Mapped to CWE weakness
+            </span>
+            <span class="attack-legend-item">
+                <span class="attack-legend-swatch attack-legend-unmapped"></span>
+                No CWE mapping
+            </span>
+        </div>
+
+        <div id="loading" class="loading">
+            <div class="spinner"></div>
+            <p>Loading ATT&CK matrix...</p>
+        </div>
+
+        <div id="matrixContent" style="display:none;">
+            <div id="attackMatrix" class="attack-matrix"></div>
+        </div>
+
+        <!-- Technique detail panel -->
+        <div id="techniquePanel" class="attack-detail-panel" style="display:none;">
+            <div class="attack-detail-header">
+                <div>
+                    <span id="techId" class="attack-detail-id"></span>
+                    <h2 id="techName" class="attack-detail-name"></h2>
+                    <div id="techTactics" class="attack-detail-tactics"></div>
+                </div>
+                <button id="closePanelBtn" class="attack-close-btn">&times;</button>
+            </div>
+            <p id="techDesc" class="attack-detail-desc"></p>
+            <div id="techSubtechniques" style="display:none;">
+                <h3>Sub-techniques</h3>
+                <div id="subtechList" class="attack-sub-list"></div>
+            </div>
+            <div id="techCWEs" style="display:none;">
+                <h3>Mapped CWE Weaknesses</h3>
+                <div id="cweList" class="attack-cwe-list"></div>
+            </div>
+            <a id="techMitreLink" href="#" target="_blank" rel="noopener noreferrer" class="mitre-link" style="margin-top:1rem; display:inline-flex;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                View on MITRE ATT&CK
+            </a>
+        </div>
+
+        <div id="errorDiv" class="error-message" style="display:none;"></div>
+    </main>
+
+    <footer class="site-footer">
+        <p>PureSecure CWE Explorer &mdash; ATT&CK data sourced from <a href="https://attack.mitre.org" target="_blank" rel="noopener noreferrer">MITRE ATT&CK</a>.</p>
+    </footer>
+
+    <script src="https://alcdn.msauth.net/browser/2.38.2/js/msal-browser.min.js"></script>
+    <script src="/auth.js?v=3"></script>
+    <script src="/common.js?v=3"></script>
+    <script>
+        (async function() {
+            try {
+                var ok = await requireAuth();
+                if (!ok) return;
+                var s = document.createElement('script');
+                s.src = '/attack.js?v=2';
+                document.body.appendChild(s);
+            } catch(e) { console.error('Auth error:', e); }
+        })();
+    </script>
+</body>
+</html>
