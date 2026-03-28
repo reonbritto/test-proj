@@ -83,7 +83,7 @@
             color: var(--text-muted);
         }
 
-        /* ── Info & Credential Boxes ─────────────────────── */
+        /* ── Info Box ─────────────────────────────────────── */
         .info-box {
             background: var(--bg-base);
             border: 1px solid var(--border-color);
@@ -110,76 +110,6 @@
 
         .info-box.info-note {
             border-left: 3px solid var(--green-dark);
-        }
-
-        .info-box.info-creds {
-            border-left: 3px solid #f59e0b;
-        }
-
-        .cred-row {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            margin-bottom: 0.5rem;
-        }
-
-        .cred-row:last-child {
-            margin-bottom: 0;
-        }
-
-        .cred-label {
-            font-size: 0.78rem;
-            font-weight: 600;
-            color: var(--text-muted);
-            min-width: 70px;
-            flex-shrink: 0;
-        }
-
-        .cred-value {
-            flex: 1;
-            font-family: 'SF Mono', 'Cascadia Code', 'Consolas', monospace;
-            font-size: 0.85rem;
-            background: var(--bg-card);
-            border: 1px solid var(--border-color);
-            border-radius: 4px;
-            padding: 0.35rem 0.6rem;
-            color: var(--text-primary);
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-        }
-
-        .cred-btn {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            width: 32px;
-            height: 32px;
-            border: 1px solid var(--border-color);
-            border-radius: 4px;
-            background: var(--bg-card);
-            cursor: pointer;
-            color: var(--text-muted);
-            transition: all 0.15s;
-            flex-shrink: 0;
-            padding: 0;
-        }
-
-        .cred-btn:hover {
-            background: var(--green-dim);
-            color: var(--green-dark);
-            border-color: var(--green-dark);
-        }
-
-        .cred-btn.copied {
-            background: var(--green-dark);
-            color: #fff;
-            border-color: var(--green-dark);
-        }
-
-        .cred-value.masked {
-            color: var(--text-muted);
-            letter-spacing: 0.15em;
         }
     </style>
 </head>
@@ -225,46 +155,6 @@
                 </div>
             </div>
 
-            <!-- Test credentials box -->
-            <div class="info-box info-creds">
-                <div class="box-label">Test Account</div>
-                <div class="cred-row">
-                    <span class="cred-label">Email</span>
-                    <span class="cred-value masked" id="testEmail" data-value="puresecure2026@outlook.com">••••••••••••••••••••••••••</span>
-                    <button class="cred-btn" onclick="toggleField('testEmail')" title="Show / Hide">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round" id="testEmail-eye">
-                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-                            <circle cx="12" cy="12" r="3" />
-                        </svg>
-                    </button>
-                    <button class="cred-btn" onclick="copyField('testEmail')" title="Copy">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
-                            <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" />
-                        </svg>
-                    </button>
-                </div>
-                <div class="cred-row">
-                    <span class="cred-label">Password</span>
-                    <span class="cred-value masked" id="testPass" data-value="Puresecure@2026">•••••••••••••••</span>
-                    <button class="cred-btn" onclick="toggleField('testPass')" title="Show / Hide">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round" id="testPass-eye">
-                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-                            <circle cx="12" cy="12" r="3" />
-                        </svg>
-                    </button>
-                    <button class="cred-btn" onclick="copyField('testPass')" title="Copy">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
-                            <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" />
-                        </svg>
-                    </button>
-                </div>
-            </div>
 
             <div class="login-footer">
                 Protected by Microsoft Entra ID
@@ -275,37 +165,6 @@
     <script src="https://alcdn.msauth.net/browser/2.38.2/js/msal-browser.min.js"></script>
     <script src="/auth.js?v=3"></script>
     <script>
-        /* ── Toggle mask / unmask ─────────────────────────── */
-        function toggleField(id) {
-            const el = document.getElementById(id);
-            const isMasked = el.classList.contains('masked');
-            if (isMasked) {
-                el.textContent = el.dataset.value;
-                el.classList.remove('masked');
-            } else {
-                el.textContent = '•'.repeat(el.dataset.value.length);
-                el.classList.add('masked');
-            }
-        }
-
-        /* ── Copy to clipboard ────────────────────────────── */
-        function copyField(id) {
-            const el = document.getElementById(id);
-            const val = el.dataset.value;
-            navigator.clipboard.writeText(val).then(() => {
-                // Find the copy button (second .cred-btn in the row)
-                const row = el.closest('.cred-row');
-                const btns = row.querySelectorAll('.cred-btn');
-                const copyBtn = btns[btns.length - 1];
-                copyBtn.classList.add('copied');
-                copyBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
-                setTimeout(() => {
-                    copyBtn.classList.remove('copied');
-                    copyBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>';
-                }, 1500);
-            });
-        }
-
         /* ── MSAL login ───────────────────────────────────── */
         async function doLogin() {
             const ok = await initAuth();

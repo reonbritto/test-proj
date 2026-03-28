@@ -26,7 +26,7 @@ spec:
           image: reonbritto/puresecure-cve-explorer:latest
           # Docker Desktop with local image: imagePullPolicy: Never
           # AKS with ACR: image: <acr>.azurecr.io/puresecure-cve-explorer:latest
-          imagePullPolicy: IfNotPresent
+          imagePullPolicy: Never
           ports:
             - name: http
               containerPort: 8000

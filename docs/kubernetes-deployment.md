@@ -32,27 +32,27 @@ docker-desktop   Ready    control-plane   ...   v1.x.x
 
 ## Architecture Overview
 
-The application deploys 3 services into a `puresecure` namespace:
+The application deploys 4 services into a `puresecure` namespace:
 
 ```
-                        ┌─────────────────────────────────┐
-                        │         puresecure namespace     │
-                        │                                  │
-  User ──► localhost ─► │  ┌──────────┐                   │
-         (port-forward) │  │   web     │ ◄── FastAPI app   │
-                        │  │  :8000    │     (port 8000)   │
-                        │  └────┬─────┘                    │
-                        │       │ /metrics                 │
-                        │  ┌────▼──────┐                   │
-                        │  │prometheus │ ◄── Metrics store  │
-                        │  │  :9090    │     (port 9090)   │
-                        │  └────┬──────┘                   │
-                        │       │                          │
-                        │  ┌────▼──────┐                   │
-                        │  │  grafana  │ ◄── Dashboards    │
-                        │  │  :3000    │     (port 3000)   │
-                        │  └───────────┘                   │
-                        └─────────────────────────────────┘
+                        ┌──────────────────────────────────┐
+                        │         puresecure namespace      │
+                        │                                   │
+  User ──► localhost ─► │  ┌──────────┐                    │
+         (port-forward) │  │   web     │ ◄── FastAPI app    │
+                        │  │  :8000    │     (port 8000)    │
+                        │  └────┬─────┘                     │
+                        │       │ /metrics                  │
+                        │  ┌────▼──────┐  ┌────────────┐   │
+                        │  │prometheus │  │   locust    │   │
+                        │  │  :9090    │  │   :8089     │   │
+                        │  └────┬──────┘  └────────────┘   │
+                        │       │                           │
+                        │  ┌────▼──────┐                    │
+                        │  │  grafana  │ ◄── Dashboards     │
+                        │  │  :3000    │     (port 3000)    │
+                        │  └───────────┘                    │
+                        └──────────────────────────────────┘
 ```
 
 | Component | Image | Purpose |
@@ -60,23 +60,29 @@ The application deploys 3 services into a `puresecure` namespace:
 | **web** | `reonbritto/puresecure-cve-explorer:latest` | FastAPI application |
 | **prometheus** | `prom/prometheus:v2.51.2` | Metrics collection |
 | **grafana** | `grafana/grafana:10.4.2` | Monitoring dashboards |
+| **locust** | `locustio/locust:2.24.1` | Load testing UI |
 
 ---
 
 ## Quick Start
 
 ```bash
+cp .env.example .env
+# Edit .env with your actual Azure, API key, and Grafana values
+
+export $(grep -v '^#' .env | xargs)
 chmod +x k8s/setup.sh
 ./k8s/setup.sh
 ```
 
 The script will:
 1. Create the `puresecure` namespace
-2. Create secrets
-3. Deploy all services (app, Prometheus, Grafana)
-4. Deploy NGINX ingress
-5. Wait for pods to be ready
-6. Print access URLs
+2. Create secrets from environment variables
+3. Deploy all services (app, Prometheus, Grafana, Locust)
+4. Wait for pods to be ready
+5. Print access URLs
+
+> **Note:** `setup.sh` requires `SERVICE_API_KEY` and `GF_ADMIN_PASSWORD` environment variables to be set. It will exit with an error if they are missing.
 
 ---
 
@@ -110,15 +116,16 @@ kubectl apply -f k8s/namespace.yaml
 
 ### 4. Create Secrets
 
+**Both keys are required** — `SERVICE_API_KEY` is used by the app for Locust/monitoring auth, and `GF_ADMIN_PASSWORD` is used by Grafana. If either is missing, the corresponding pod will fail to start.
+
+First, copy `.env.example` to `.env` and fill in your values:
+
 ```bash
-kubectl create secret generic app-secrets \
-  --namespace=puresecure \
-  --from-literal=SERVICE_API_KEY="puresecure-locust-key-2026" \
-  --from-literal=GF_ADMIN_PASSWORD="admin" \
-  --dry-run=client -o yaml | kubectl apply -f -
+cp .env.example .env
+# Edit .env with your actual values
 ```
 
-Or from your `.env` file:
+Then create the secret from your `.env` file:
 
 ```bash
 export $(grep -v '^#' .env | xargs)
@@ -130,10 +137,21 @@ kubectl create secret generic app-secrets \
   --dry-run=client -o yaml | kubectl apply -f -
 ```
 
-### 5. Deploy All Services
+> **Tip:** If Grafana fails with `couldn't find key GF_ADMIN_PASSWORD in Secret`, re-run the command above to recreate the secret with both keys, then restart Grafana: `kubectl rollout restart deployment/grafana -n puresecure`
+
+### 5. Update the ConfigMap
+
+Edit `k8s/app/configmap.yaml` and set your Azure Entra ID values:
+
+```yaml
+AZURE_TENANT_ID: "your-tenant-id"
+AZURE_CLIENT_ID: "your-client-id"
+```
+
+### 6. Deploy All Services
 
 ```bash
-kubectl apply -f k8s/app/ -f k8s/prometheus/ -f k8s/grafana/ -f k8s/ingress.yaml
+kubectl apply -f k8s/app/ -f k8s/prometheus/ -f k8s/grafana/ -f k8s/locust/
 ```
 
 ### 6. Verify the Deployment
@@ -142,6 +160,7 @@ kubectl apply -f k8s/app/ -f k8s/prometheus/ -f k8s/grafana/ -f k8s/ingress.yaml
 kubectl rollout status deployment/cwe-explorer -n puresecure --timeout=300s
 kubectl rollout status deployment/prometheus -n puresecure --timeout=60s
 kubectl rollout status deployment/grafana -n puresecure --timeout=60s
+kubectl rollout status deployment/locust -n puresecure --timeout=60s
 ```
 
 Check pods:
@@ -157,11 +176,12 @@ NAME                            READY   STATUS    RESTARTS   AGE
 cwe-explorer-xxxxxxxxxx-xxxxx   1/1     Running   0          1m
 prometheus-xxxxxxxxxx-xxxxx     1/1     Running   0          1m
 grafana-xxxxxxxxxx-xxxxx        1/1     Running   0          1m
+locust-xxxxxxxxxx-xxxxx         1/1     Running   0          1m
 ```
 
 ### 7. Access the Application
 
-**Port Forwarding (recommended):**
+Use port-forwarding to access each service:
 
 ```bash
 # Terminal 1 — Web app
@@ -172,6 +192,9 @@ kubectl port-forward svc/grafana 3000:3000 -n puresecure
 
 # Terminal 3 — Prometheus
 kubectl port-forward svc/prometheus 9090:9090 -n puresecure
+
+# Terminal 4 — Locust
+kubectl port-forward svc/locust 8089:8089 -n puresecure
 ```
 
 | Service | URL |
@@ -179,33 +202,7 @@ kubectl port-forward svc/prometheus 9090:9090 -n puresecure
 | **App** | <http://localhost:8000> |
 | **Grafana** | <http://localhost:3000> (admin / admin) |
 | **Prometheus** | <http://localhost:9090> |
-
-**Ingress (optional):**
-
-Install the NGINX ingress controller:
-
-```bash
-kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.10.1/deploy/static/provider/cloud/deploy.yaml
-```
-
-Add to `C:\Windows\System32\drivers\etc\hosts` (run Notepad as Admin):
-
-```
-127.0.0.1  puresecure.local grafana.puresecure.local prometheus.puresecure.local
-```
-
-Then access via <http://puresecure.local>.
-
-**Azure AD Redirect URI (required for ingress):**
-
-When accessing the app via `http://puresecure.local` (ingress) instead of `http://localhost:8000` (port-forward), you **must** register the ingress URL as a redirect URI in your Azure AD app registration:
-
-1. Go to [Azure Portal](https://portal.azure.com) > **App registrations** > select your app
-2. Navigate to **Authentication** > **Platform configurations** > **Web**
-3. Add `http://puresecure.local` to the **Redirect URIs** list
-4. Click **Save**
-
-Without this, Microsoft login will fail with a redirect URI mismatch error, causing an infinite page refresh.
+| **Locust** | <http://localhost:8089> |
 
 ---
 
@@ -221,8 +218,6 @@ The ConfigMap (`k8s/app/configmap.yaml`) supports these variables:
 | `GRAFANA_URL` | `http://localhost:3000` | Grafana dashboard URL for nav links |
 | `PROMETHEUS_URL` | `http://localhost:9090` | Prometheus URL for nav links |
 | `LOCUST_URL` | `http://localhost:8089` | Locust URL for nav links (empty to hide) |
-
-When using ingress, set `CORS_ORIGINS` to include your ingress hostname (e.g. `http://puresecure.local`).
 
 ---
 
@@ -264,7 +259,7 @@ kubectl logs -l app=cwe-explorer -n puresecure --previous
 ```
 
 Common causes:
-- Missing secret (`app-secrets`) or `GF_ADMIN_PASSWORD` key — recreate using step 4
+- Missing secret key (e.g. `couldn't find key GF_ADMIN_PASSWORD in Secret`) — the `app-secrets` secret must contain **both** `SERVICE_API_KEY` and `GF_ADMIN_PASSWORD`. Recreate using step 4, then restart the failing deployment: `kubectl rollout restart deployment/<name> -n puresecure`
 - Insufficient memory — increase Docker Desktop resources: **Settings > Resources > Memory**
 
 ### Pod stuck in `Pending`
@@ -277,26 +272,15 @@ Common causes:
 - PVC not bound — check StorageClass: `kubectl get sc`
 - Insufficient resources — increase Docker Desktop CPU/Memory in Settings
 
-### Ingress not working
-
-```bash
-kubectl get ingress -n puresecure
-kubectl get pods -n ingress-nginx
-```
-
-If ingress controller isn't installed, use port-forwarding instead.
-
 ### Infinite page refresh after login
 
 If the page keeps refreshing after signing in with Microsoft:
 
-1. **Check Azure AD redirect URI** — the most common cause. Ensure the URL you access the app from (e.g. `http://puresecure.local` or `http://localhost:8000`) is registered as a redirect URI in your Azure AD app registration. See the "Azure AD Redirect URI" section above.
+1. **Check Azure AD redirect URI** — ensure `http://localhost:8000` is registered as a redirect URI in your Azure AD app registration (Azure Portal > App registrations > Authentication).
 
-2. **Check CORS_ORIGINS** — if accessing via ingress, ensure `CORS_ORIGINS` in the ConfigMap includes your hostname.
+2. **Clear browser storage** — open DevTools > Application > Local Storage and clear all entries for the site, then try logging in again.
 
-3. **Clear browser storage** — open DevTools > Application > Local Storage and clear all entries for the site, then try logging in again.
-
-4. **Check pod logs** for 401 errors:
+3. **Check pod logs** for 401 errors:
    ```bash
    kubectl logs -f deployment/cwe-explorer -n puresecure
    ```
@@ -323,62 +307,3 @@ kubectl delete namespace puresecure
 ```
 
 Disable Kubernetes: Docker Desktop > **Settings > Kubernetes > uncheck Enable Kubernetes**.
-
----
-
-## AKS Migration Notes
-
-When moving to Azure Kubernetes Service:
-
-### 1. Container Registry
-
-```bash
-az acr create -n puresecureacr -g rg-puresecure --sku Basic
-az acr login -n puresecureacr
-
-docker tag reonbritto/puresecure-cve-explorer \
-  puresecureacr.azurecr.io/puresecure-cve-explorer:latest
-
-docker push puresecureacr.azurecr.io/puresecure-cve-explorer:latest
-
-az aks update -n aks-puresecure -g rg-puresecure --attach-acr puresecureacr
-```
-
-Update `k8s/app/deployment.yaml` image to `puresecureacr.azurecr.io/puresecure-cve-explorer:latest`.
-
-### 2. Storage Class
-
-Update PVCs (`k8s/app/pvc.yaml`, `k8s/grafana/pvc.yaml`):
-
-```yaml
-spec:
-  storageClassName: managed-csi
-```
-
-### 3. Secrets
-
-Use Azure Key Vault:
-
-```bash
-az keyvault create -n puresecure-kv -g rg-puresecure
-az keyvault secret set --vault-name puresecure-kv --name SERVICE-API-KEY --value "your-key"
-```
-
-### 4. Ingress
-
-Replace NGINX with Azure Application Gateway:
-
-```yaml
-spec:
-  ingressClassName: azure-application-gateway
-```
-
-### 5. TLS
-
-```yaml
-spec:
-  tls:
-    - hosts:
-        - puresecure.yourdomain.com
-      secretName: puresecure-tls
-```

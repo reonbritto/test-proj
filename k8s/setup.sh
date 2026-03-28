@@ -11,16 +11,13 @@ PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 echo "==> Checking Kubernetes cluster..."
 kubectl cluster-info > /dev/null 2>&1 || { echo "Kubernetes is not running. Please enable it in Docker Desktop."; exit 1; }
 
-echo "==> Applying ingress controller (if not present)..."
-kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.10.1/deploy/static/provider/cloud/deploy.yaml
-
 echo "==> Creating namespace..."
 kubectl apply -f "$SCRIPT_DIR/namespace.yaml"
 
 # ── Create secrets imperatively (avoids committing encoded values) ──
 echo "==> Creating secrets..."
-SERVICE_API_KEY="${SERVICE_API_KEY:-puresecure-locust-key-2026}"
-GF_ADMIN_PASSWORD="${GF_ADMIN_PASSWORD:-admin}"
+SERVICE_API_KEY="${SERVICE_API_KEY:?ERROR: SERVICE_API_KEY environment variable is required}"
+GF_ADMIN_PASSWORD="${GF_ADMIN_PASSWORD:?ERROR: GF_ADMIN_PASSWORD environment variable is required}"
 
 kubectl create secret generic app-secrets \
   --namespace=puresecure \
@@ -37,13 +34,14 @@ kubectl apply -f "$SCRIPT_DIR/prometheus/"
 echo "==> Deploying Grafana..."
 kubectl apply -f "$SCRIPT_DIR/grafana/"
 
-echo "==> Deploying Ingress..."
-kubectl apply -f "$SCRIPT_DIR/ingress.yaml"
+echo "==> Deploying Locust..."
+kubectl apply -f "$SCRIPT_DIR/locust/"
 
 echo "==> Waiting for deployments to roll out..."
 kubectl rollout status deployment/cwe-explorer -n puresecure --timeout=300s
 kubectl rollout status deployment/prometheus -n puresecure --timeout=60s
 kubectl rollout status deployment/grafana -n puresecure --timeout=60s
+kubectl rollout status deployment/locust -n puresecure --timeout=60s
 
 # ── Print access info ──
 
@@ -52,22 +50,16 @@ echo "============================================="
 echo "  Deployment complete!"
 echo "============================================="
 echo ""
-echo "Add these to your hosts file:"
-echo "  Windows: C:\\Windows\\System32\\drivers\\etc\\hosts (run Notepad as Admin)"
-echo "  Linux/Mac: /etc/hosts"
-echo ""
-echo "  127.0.0.1  puresecure.local grafana.puresecure.local prometheus.puresecure.local"
-echo ""
-echo "Then access:"
-echo "  App:        http://puresecure.local"
-echo "  Grafana:    http://grafana.puresecure.local  (admin / ${GF_ADMIN_PASSWORD})"
-echo "  Prometheus: http://prometheus.puresecure.local"
-echo ""
-echo "─── OR use port-forward (no hosts file needed) ───"
+echo "Use port-forward to access the services:"
 echo ""
 echo "  kubectl port-forward svc/web 8000:8000 -n puresecure"
 echo "  kubectl port-forward svc/grafana 3000:3000 -n puresecure"
 echo "  kubectl port-forward svc/prometheus 9090:9090 -n puresecure"
+echo "  kubectl port-forward svc/locust 8089:8089 -n puresecure"
 echo ""
-echo "  Then open: http://localhost:8000"
+echo "Then open:"
+echo "  App:        http://localhost:8000"
+echo "  Grafana:    http://localhost:3000  (admin / ${GF_ADMIN_PASSWORD})"
+echo "  Prometheus: http://localhost:9090"
+echo "  Locust:     http://localhost:8089"
 echo ""

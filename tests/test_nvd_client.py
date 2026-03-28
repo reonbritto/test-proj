@@ -1,4 +1,5 @@
 """Tests for NVD API client — parsing, caching, error handling."""
+from urllib.parse import urlparse
 from app.nvd_client import parse_nvd_cve
 
 
@@ -75,7 +76,8 @@ class TestParseNvdCve:
     def test_parses_references(self):
         result = parse_nvd_cve(SAMPLE_NVD_VULN)
         assert len(result.references) == 1
-        assert "nvd.nist.gov" in result.references[0].url
+        parsed = urlparse(result.references[0].url)
+        assert parsed.hostname == "nvd.nist.gov"
 
     def test_parses_dates(self):
         result = parse_nvd_cve(SAMPLE_NVD_VULN)
