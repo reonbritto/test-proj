@@ -126,7 +126,7 @@ FEATURED_CWE_IDS = [
     "918",  # Server-Side Request Forgery (SSRF)
     "611",  # XML External Entity (XXE)
     # Supply chain & modern threats
-    "1357", # Reliance on Insufficiently Trustworthy Component
+    "1357",  # Reliance on Insufficiently Trustworthy Component
     "494",  # Download of Code Without Integrity Check
     "829",  # Inclusion of Functionality from Untrusted Control Sphere
     "426",  # Untrusted Search Path
@@ -331,7 +331,6 @@ async def api_cve_attack_mapping(
 
 
 # -- ATT&CK Endpoints (auth required) --------------------------------
-
 
 
 @app.get("/api/attack/tactics")
