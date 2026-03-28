@@ -11,6 +11,9 @@ services:
       - AZURE_TENANT_ID=${AZURE_TENANT_ID}
       - AZURE_CLIENT_ID=${AZURE_CLIENT_ID}
       - SERVICE_API_KEY=${SERVICE_API_KEY}
+      - GRAFANA_URL=http://localhost:3000
+      - PROMETHEUS_URL=http://localhost:9090
+      - LOCUST_URL=http://localhost:8089
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "python", "-c", "import httpx; httpx.get('http://localhost:8000/api/health').raise_for_status()"]
@@ -47,7 +50,22 @@ services:
     environment:
       - GF_SECURITY_ADMIN_USER=${GF_ADMIN_USER}
       - GF_SECURITY_ADMIN_PASSWORD=${GF_ADMIN_PASSWORD}
-      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_USERS_ALLOW_SIGN_UP=true
+      - GF_USERS_AUTO_ASSIGN_ORG=true
+      - GF_USERS_AUTO_ASSIGN_ORG_ROLE=Viewer
+      # ── Azure AD OAuth (Microsoft login) ──
+      - GF_AUTH_AZUREAD_ENABLED=${GF_AUTH_AZUREAD_ENABLED:-false}
+      - GF_AUTH_AZUREAD_NAME=Microsoft
+      - GF_AUTH_AZUREAD_ALLOW_SIGN_UP=true
+      - GF_AUTH_AZUREAD_AUTO_LOGIN=false
+      - GF_AUTH_AZUREAD_CLIENT_ID=${AZURE_CLIENT_ID}
+      - GF_AUTH_AZUREAD_CLIENT_SECRET=${GF_AUTH_AZUREAD_CLIENT_SECRET:-}
+      - GF_AUTH_AZUREAD_SCOPES=openid profile email User.Read
+      - GF_AUTH_AZUREAD_AUTH_URL=https://login.microsoftonline.com/common/oauth2/v2.0/authorize
+      - GF_AUTH_AZUREAD_TOKEN_URL=https://login.microsoftonline.com/common/oauth2/v2.0/token
+      - GF_AUTH_DISABLE_LOGIN_FORM=false
+      - GF_SERVER_ROOT_URL=http://localhost:3000
+      - GF_SERVER_DOMAIN=localhost
     depends_on:
       - prometheus
     restart: unless-stopped

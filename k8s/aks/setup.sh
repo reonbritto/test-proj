@@ -4,6 +4,7 @@ set -euo pipefail
 # ─────────────────────────────────────────────────────────
 #  PureSecure CVE Explorer — AKS Deployment Script
 #  Domain: reondev.top  |  Ingress: Traefik  |  TLS: Let's Encrypt
+#  AKS Tier: Free  |  1x Standard_D2lds_v6 node
 # ─────────────────────────────────────────────────────────
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -70,7 +71,7 @@ else
     helm repo update
     helm install cert-manager jetstack/cert-manager \
         --namespace cert-manager \
-        --set crds.install=true \
+        --set installCRDs=true \
         --wait
 fi
 

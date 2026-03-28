@@ -50,4 +50,5 @@ Thumbs.db
 prometheus-data/
 grafana-data/
 
-docs
+.docs
+docs/

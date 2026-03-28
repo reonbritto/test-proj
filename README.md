@@ -34,7 +34,7 @@ The backend is built with **FastAPI** and serves a lightweight **vanilla JavaScr
 - **Grafana Dashboards** -- Pre-provisioned dashboard with 18 panels across 5 sections
 - **Locust Load Testing** -- Pre-built scenarios covering all API endpoints
 - **Intelligent Caching** -- SQLite cache with 24-hour TTL and startup cleanup
-- **Kubernetes Ready** -- Full Docker Desktop Kubernetes manifests with Ingress, ConfigMaps, Secrets, and AKS migration guide
+- **Kubernetes Ready** -- Production AKS deployment with Traefik ingress, Let's Encrypt TLS, and Azure AD OAuth for Grafana
 - **Request Logging** -- Structured logs with method, path, status, and duration
 - **Input Validation** -- Regex-based CVE/CWE ID validation and query sanitization
 - **XSS Prevention** -- HTML escaping via `textContent` and `encodeURIComponent`
@@ -137,7 +137,7 @@ graph LR
 | **Load Testing** | Locust 2.24.1 |
 | **XML Security** | defusedxml (XXE prevention) |
 | **Frontend** | Vanilla JavaScript, HTML5, CSS3, MSAL.js |
-| **Containerization** | Docker + Docker Compose |
+| **Containerization** | Docker + Docker Compose + AKS |
 | **Testing** | pytest, respx (HTTP mocking) |
 | **Security Scanning** | bandit, flake8 |
 
@@ -195,16 +195,21 @@ cve-new-bri/
 │   ├── test_nvd_client.py              # NVD response parser tests
 │   └── test_security.py               # Input validation tests
 ├── data/                               # Auto-created: SQLite cache database
-├── k8s/                               # Kubernetes deployment manifests
+├── k8s/aks/                           # AKS (Azure Kubernetes Service) manifests
 │   ├── namespace.yaml                 # puresecure namespace
-│   ├── ingress.yaml                   # NGINX Ingress (host-based routing)
-│   ├── setup.sh                      # One-command Kubernetes deployment
-│   ├── app/                           # Web app: Deployment, Service, ConfigMap, Secret, PVC
-│   ├── prometheus/                    # Prometheus: Deployment, Service, ConfigMap
-│   └── grafana/                       # Grafana: Deployment, Service, ConfigMaps, PVC
+│   ├── setup.sh                       # Automated AKS deployment script
+│   ├── teardown.sh                    # Clean removal script
+│   ├── app/                           # Web app: Deployment, Service, ConfigMap, PVC
+│   ├── cert-manager/                  # TLS: ClusterIssuer, Certificates (Let's Encrypt)
+│   ├── grafana/                       # Grafana: Deployment, Service, ConfigMaps (Azure AD OAuth), PVC
+│   ├── locust/                        # Locust: Deployment, Service, ConfigMap
+│   ├── prometheus/                    # Prometheus: Deployment, Service, ConfigMap, PVC
+│   └── traefik/                       # Ingress: IngressRoute, Middleware (security headers, rate limit)
 ├── docs/
 │   ├── REPORT.md                       # Security design report
-│   └── kubernetes-deployment.md        # K8s deployment guide (Docker Desktop + AKS)
+│   ├── kubernetes-deployment.md        # Local K8s guide (Docker Desktop)
+│   ├── aks-deployment.md              # Production AKS deployment guide
+│   └── developer-guide.md            # Developer onboarding & workflow
 ├── .env.example                        # Environment variable template
 ├── Dockerfile                          # Multi-stage Python 3.12-slim image
 ├── docker-compose.yml                  # Full stack: web, prometheus, grafana, locust
@@ -712,9 +717,8 @@ The project uses a GitHub Actions pipeline (`.github/workflows/ci-cd.yml`) with 
 | Stage | Tool | Purpose |
 |-------|------|---------|
 | 1. Lint | Flake8 | Code quality and PEP 8 compliance |
-| 2. SAST | Bandit | Python security pattern analysis |
-| 3. SAST | CodeQL | Semantic code analysis (Python + JavaScript) |
-| 4. SCA | Safety + pip-audit | Dependency vulnerability scanning |
+| 2. SAST | CodeQL | Semantic code analysis (Python + JavaScript) |
+| 3. SCA | Snyk | Dependency vulnerability scanning |
 | 5. Secrets | Gitleaks | Detect committed secrets in git history |
 | 6. SBOM | CycloneDX | Software Bill of Materials (JSON + XML) |
 | 7. Test | pytest | Unit and integration tests with coverage |
@@ -758,27 +762,22 @@ docker build -t puresecure-cve-explorer .
 
 ## Kubernetes Deployment
 
-The project includes full Kubernetes manifests for local development (Docker Desktop) and production (AKS).
+The project deploys to **Azure Kubernetes Service (AKS)** with Traefik ingress, Let's Encrypt TLS, and Microsoft Entra ID authentication.
 
-```bash
-# Quick start with Docker Desktop Kubernetes
-chmod +x k8s/setup.sh
-./k8s/setup.sh
+| Environment | Guide | Description |
+|-------------|-------|-------------|
+| **AKS (Production)** | [docs/aks-deployment.md](docs/aks-deployment.md) | Full AKS deployment with Traefik, TLS, Azure AD OAuth |
+| **Docker Desktop (Local)** | [docs/kubernetes-deployment.md](docs/kubernetes-deployment.md) | Local K8s testing with port-forwarding |
+| **Developer Workflow** | [docs/developer-guide.md](docs/developer-guide.md) | End-to-end dev process: local → Docker → CI/CD → AKS |
 
-# Or manually
-# Ensure Kubernetes is enabled in Docker Desktop settings
-kubectl apply -f k8s/namespace.yaml
-kubectl create secret generic app-secrets -n puresecure \
-  --from-literal=SERVICE_API_KEY="your-key" \
-  --from-literal=GF_ADMIN_PASSWORD="admin" \
-  --dry-run=client -o yaml | kubectl apply -f -
-kubectl apply -f k8s/app/ -f k8s/prometheus/ -f k8s/grafana/ -f k8s/ingress.yaml
+### Production URLs
 
-# Access via port-forward
-kubectl port-forward svc/web 8000:8000 -n puresecure
-```
-
-See [docs/kubernetes-deployment.md](docs/kubernetes-deployment.md) for the full step-by-step guide, troubleshooting, and AKS migration notes.
+| URL | Service | Auth |
+|-----|---------|------|
+| `https://reondev.top` | Main app (FastAPI) | Microsoft Entra ID (MSAL.js) |
+| `https://grafana.reondev.top` | Grafana dashboards | Microsoft Entra ID (OAuth) |
+| `localhost:9090` (port-forward) | Prometheus metrics | Internal only |
+| `localhost:8089` (port-forward) | Locust load testing | Internal only |
 
 ---
 

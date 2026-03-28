@@ -11,4 +11,3 @@ spec:
   dnsNames:
     - reondev.top
     - grafana.reondev.top
-    - prometheus.reondev.top

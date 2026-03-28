@@ -17,6 +17,15 @@ spec:
         app: grafana
         tier: monitoring
     spec:
+      securityContext:
+        fsGroup: 472
+      initContainers:
+        - name: fix-permissions
+          image: busybox:1.36
+          command: ["sh", "-c", "chown -R 472:472 /var/lib/grafana && mkdir -p /var/lib/grafana/dashboards && mkdir -p /var/lib/grafana/plugins"]
+          volumeMounts:
+            - name: grafana-data
+              mountPath: /var/lib/grafana
       containers:
         - name: grafana
           image: grafana/grafana:10.4.2
@@ -24,6 +33,9 @@ spec:
             - name: http
               containerPort: 3000
               protocol: TCP
+          envFrom:
+            - configMapRef:
+                name: grafana-auth-config
           env:
             - name: GF_SECURITY_ADMIN_USER
               value: "admin"
@@ -32,12 +44,13 @@ spec:
                 secretKeyRef:
                   name: app-secrets
                   key: GF_ADMIN_PASSWORD
-            - name: GF_USERS_ALLOW_SIGN_UP
-              value: "false"
-            - name: GF_SERVER_ROOT_URL
-              value: "https://grafana.reondev.top"
-            - name: GF_SERVER_DOMAIN
-              value: "grafana.reondev.top"
+            - name: GF_AUTH_AZUREAD_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: GF_AUTH_AZUREAD_CLIENT_SECRET
+            - name: GF_PATHS_PLUGINS
+              value: "/var/lib/grafana/plugins"
           volumeMounts:
             - name: provisioning-datasources
               mountPath: /etc/grafana/provisioning/datasources/datasource.yml
@@ -45,22 +58,22 @@ spec:
             - name: provisioning-dashboards
               mountPath: /etc/grafana/provisioning/dashboards/dashboard.yml
               subPath: dashboard.yml
+            - name: grafana-data
+              mountPath: /var/lib/grafana
             - name: dashboard-json
               mountPath: /var/lib/grafana/dashboards/cwe-explorer.json
               subPath: cwe-explorer.json
-            - name: grafana-data
-              mountPath: /var/lib/grafana
           livenessProbe:
             httpGet:
               path: /api/health
               port: http
-            initialDelaySeconds: 15
+            initialDelaySeconds: 30
             periodSeconds: 30
           readinessProbe:
             httpGet:
               path: /api/health
               port: http
-            initialDelaySeconds: 5
+            initialDelaySeconds: 10
             periodSeconds: 10
           resources:
             requests:
