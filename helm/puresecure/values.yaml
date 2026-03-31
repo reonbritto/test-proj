@@ -5,7 +5,6 @@
 # -- Global
 namespace: puresecure
 domain: reondev.top
-
 # ─────────────────────────────────────────────────────────
 #  Application (FastAPI)
 # ─────────────────────────────────────────────────────────
@@ -13,7 +12,7 @@ app:
   name: cwe-explorer
   image:
     repository: reonbritto/puresecure-cve-explorer
-    tag: "latest"  # CI will auto-update this with the git SHA
+    tag: "3f5a587" # CI will auto-update this with the git SHA
     pullPolicy: Always
   replicas: 1
   port: 8000
@@ -52,7 +51,6 @@ app:
     GRAFANA_URL: "https://grafana.reondev.top"
     PROMETHEUS_URL: ""
     LOCUST_URL: ""
-
 # ─────────────────────────────────────────────────────────
 #  Prometheus
 # ─────────────────────────────────────────────────────────
@@ -75,7 +73,6 @@ prometheus:
     storageClass: managed-csi
   securityContext:
     fsGroup: 65534
-
 # ─────────────────────────────────────────────────────────
 #  Grafana
 # ─────────────────────────────────────────────────────────
@@ -114,7 +111,6 @@ grafana:
     usersAutoAssignOrgRole: "Viewer"
     serverRootUrl: "https://grafana.reondev.top"
     serverDomain: "grafana.reondev.top"
-
 # ─────────────────────────────────────────────────────────
 #  Locust (Load Testing)
 # ─────────────────────────────────────────────────────────
@@ -131,7 +127,6 @@ locust:
     limits:
       cpu: 500m
       memory: 256Mi
-
 # ─────────────────────────────────────────────────────────
 #  Traefik IngressRoute
 # ─────────────────────────────────────────────────────────
@@ -144,7 +139,6 @@ ingress:
     average: 100
     burst: 200
     period: 1m
-
 # ─────────────────────────────────────────────────────────
 #  cert-manager
 # ─────────────────────────────────────────────────────────
@@ -157,7 +151,6 @@ certManager:
     staging:
       name: letsencrypt-staging
       server: https://acme-staging-v02.api.letsencrypt.org/directory
-
 # ─────────────────────────────────────────────────────────
 #  Azure Key Vault — External Secrets Operator
 # ─────────────────────────────────────────────────────────
@@ -165,7 +158,7 @@ externalSecrets:
   enabled: true
   keyVaultName: kv-puresecure-prod
   tenantId: "d1d16433-e375-4076-a7ea-c57bb79df0de"
-  managedIdentityClientId: "e66581ac-15f7-4fb8-8128-1b1e05654fc2"  # Set to the Azure Managed Identity Client ID
+  managedIdentityClientId: "e66581ac-15f7-4fb8-8128-1b1e05654fc2" # Set to the Azure Managed Identity Client ID
   secretStoreName: azure-keyvault
   refreshInterval: 1h
   secrets:
