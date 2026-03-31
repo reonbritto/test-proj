@@ -140,9 +140,10 @@ graph LR
 | **Load Testing** | Locust 2.24.1 |
 | **XML Security** | defusedxml (XXE prevention) |
 | **Frontend** | Vanilla JavaScript, HTML5, CSS3, MSAL.js |
-| **Containerization** | Docker + Docker Compose + AKS |
+| **Containerization** | Docker + Docker Compose + AKS + Helm |
 | **Testing** | pytest, respx (HTTP mocking) |
 | **Security Scanning** | bandit, flake8 |
+| **Infrastructure** | Terraform, ArgoCD GitOps |
 
 ---
 
@@ -175,22 +176,12 @@ cve-new-bri/
 │       ├── search.js                   # Search with debounced suggestions
 │       ├── cve.js                      # CVE detail rendering
 │       └── cwe.js                      # CWE detail rendering
-├── monitoring/                         # Observability configuration
-│   ├── prometheus/
-│   │   ├── prometheus.yml              # Scrape config (15s interval)
-│   │   └── rules/
-│   │       ├── recording_rules.yml     # 17 pre-computed queries
-│   │       └── alerting_rules.yml      # 11 alert rules (errors, latency, traffic)
-│   └── grafana/
-│       ├── provisioning/
-│       │   ├── datasources/
-│       │   │   └── datasource.yml      # Auto-configure Prometheus datasource
-│       │   └── dashboards/
-│       │       └── dashboard.yml       # Auto-load dashboard JSON
-│       └── dashboards/
-│           └── cwe-explorer.json       # 18-panel monitoring dashboard
-├── locust/
-│   └── locustfile.py                   # Load test scenarios (all endpoints)
+├── terraform/                          # Infrastructure as Code (Azure AKS, Key Vault)
+│   ├── main.tf                         # Core resource definitions
+│   ├── variables.tf                    # Input variables
+│   ├── outputs.tf                      # Output references for Helm
+│   ├── providers.tf                    # AzureRM provider config
+│   └── terraform.tfvars.example        # Example values
 ├── tests/                              # Test suite
 │   ├── test_main.py                    # API endpoint integration tests
 │   ├── test_auth.py                    # Authentication / JWT validation tests
@@ -208,6 +199,7 @@ cve-new-bri/
 │   └── ingressroute.yaml               # Traefik routing rules for ArgoCD web interface
 ├── docs/
 │   ├── REPORT.md                       # Security design report
+│   ├── terraform-guide.md              # Infrastructure provisioning guide
 │   ├── cd-gitops-guide.md              # ArgoCD + Helm + Key Vault GitOps Guide (Latest)
 │   ├── aks-deployment.md               # Legacy manual AKS guide
 │   ├── kubernetes-deployment.md        # Local K8s guide (Docker Desktop)
@@ -769,6 +761,7 @@ The project deploys to **Azure Kubernetes Service (AKS)** with Traefik ingress, 
 
 | Environment | Guide | Description |
 |-------------|-------|-------------|
+| **AKS Provisioning** | [docs/terraform-guide.md](docs/terraform-guide.md) | Terraform guide for provisioning the AKS cluster and Key Vault |
 | **AKS (Production - GitOps)** | [docs/cd-gitops-guide.md](docs/cd-gitops-guide.md) | **Primary Guide:** Full automated deployment using ArgoCD, Helm, Traefik, and Azure Key Vault |
 | **AKS (Legacy)** | [docs/aks-deployment.md](docs/aks-deployment.md) | Legacy manual `kubectl` pipeline guide |
 | **Docker Desktop (Local)** | [docs/kubernetes-deployment.md](docs/kubernetes-deployment.md) | Local K8s testing with port-forwarding |
