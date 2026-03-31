@@ -54,3 +54,4 @@ grafana-data/
 docs/
 
 data/
+/tests/__pycache__
