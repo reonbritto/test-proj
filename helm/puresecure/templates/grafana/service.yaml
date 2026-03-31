@@ -1,0 +1,18 @@
+{{- if .Values.grafana.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: grafana
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "puresecure.grafana.labels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  selector:
+    {{- include "puresecure.grafana.selectorLabels" . | nindent 4 }}
+  ports:
+    - name: http
+      port: {{ .Values.grafana.port }}
+      targetPort: {{ .Values.grafana.port }}
+      protocol: TCP
+{{- end }}

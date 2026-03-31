@@ -1,0 +1,34 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: puresecure
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  description: PureSecure CVE Explorer Project
+  sourceRepos:
+    - https://github.com/reonbritto/test-proj.git
+  destinations:
+    - namespace: puresecure
+      server: https://kubernetes.default.svc
+  # Allow cluster-scoped resources needed by cert-manager
+  clusterResourceWhitelist:
+    - group: cert-manager.io
+      kind: ClusterIssuer
+  # Namespace-scoped resources allowed
+  namespaceResourceWhitelist:
+    - group: ""
+      kind: "*"
+    - group: apps
+      kind: "*"
+    - group: cert-manager.io
+      kind: Certificate
+    - group: traefik.io
+      kind: IngressRoute
+    - group: traefik.io
+      kind: Middleware
+    - group: external-secrets.io
+      kind: SecretStore
+    - group: external-secrets.io
+      kind: ExternalSecret

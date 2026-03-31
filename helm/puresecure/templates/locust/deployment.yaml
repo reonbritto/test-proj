@@ -1,0 +1,56 @@
+{{- if .Values.locust.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: locust
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "puresecure.locust.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.locust.replicas }}
+  selector:
+    matchLabels:
+      {{- include "puresecure.locust.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "puresecure.locust.labels" . | nindent 8 }}
+    spec:
+      containers:
+        - name: locust
+          image: {{ .Values.locust.image }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.locust.port }}
+              protocol: TCP
+          args:
+            - "-f"
+            - "/mnt/locust/locustfile.py"
+            - "--host={{ .Values.locust.targetHost }}"
+          env:
+            - name: SERVICE_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: SERVICE_API_KEY
+          volumeMounts:
+            - name: locust-script
+              mountPath: /mnt/locust
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: {{ .Values.locust.resources.requests.cpu }}
+              memory: {{ .Values.locust.resources.requests.memory }}
+            limits:
+              cpu: {{ .Values.locust.resources.limits.cpu }}
+              memory: {{ .Values.locust.resources.limits.memory }}
+      volumes:
+        - name: locust-script
+          configMap:
+            name: locust-script
+{{- end }}

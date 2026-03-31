@@ -1,0 +1,177 @@
+# ─────────────────────────────────────────────────────────
+#  PureSecure CVE Explorer — Helm Chart Values
+# ─────────────────────────────────────────────────────────
+
+# -- Global
+namespace: puresecure
+domain: reondev.top
+
+# ─────────────────────────────────────────────────────────
+#  Application (FastAPI)
+# ─────────────────────────────────────────────────────────
+app:
+  name: cwe-explorer
+  image:
+    repository: reonbritto/puresecure-cve-explorer
+    tag: "latest"  # CI will auto-update this with the git SHA
+    pullPolicy: Always
+  replicas: 1
+  port: 8000
+  resources:
+    requests:
+      cpu: 200m
+      memory: 256Mi
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+  probes:
+    liveness:
+      path: /api/health
+      initialDelaySeconds: 30
+      periodSeconds: 30
+      timeoutSeconds: 5
+      failureThreshold: 5
+    readiness:
+      path: /api/health
+      initialDelaySeconds: 20
+      periodSeconds: 10
+      timeoutSeconds: 5
+      failureThreshold: 5
+  storage:
+    size: 2Gi
+    storageClass: managed-csi
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    fsGroup: 1000
+  config:
+    PYTHONUNBUFFERED: "1"
+    AZURE_TENANT_ID: "d1d16433-e375-4076-a7ea-c57bb79df0de"
+    AZURE_CLIENT_ID: "7587a506-259a-4198-bcc5-5a6d629453f0"
+    CORS_ORIGINS: "https://reondev.top,http://localhost:8000,http://127.0.0.1:8000"
+    GRAFANA_URL: "https://grafana.reondev.top"
+    PROMETHEUS_URL: ""
+    LOCUST_URL: ""
+
+# ─────────────────────────────────────────────────────────
+#  Prometheus
+# ─────────────────────────────────────────────────────────
+prometheus:
+  enabled: true
+  image: prom/prometheus:v2.51.2
+  initImage: busybox:1.36
+  replicas: 1
+  port: 9090
+  retention: 15d
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 1Gi
+  storage:
+    size: 5Gi
+    storageClass: managed-csi
+  securityContext:
+    fsGroup: 65534
+
+# ─────────────────────────────────────────────────────────
+#  Grafana
+# ─────────────────────────────────────────────────────────
+grafana:
+  enabled: true
+  image: grafana/grafana:10.4.2
+  initImage: busybox:1.36
+  replicas: 1
+  port: 3000
+  adminUser: admin
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 250m
+      memory: 256Mi
+  storage:
+    size: 2Gi
+    storageClass: managed-csi
+  securityContext:
+    fsGroup: 472
+  auth:
+    azuread:
+      enabled: "true"
+      name: "Microsoft"
+      allowSignUp: "true"
+      autoLogin: "false"
+      scopes: "openid profile email User.Read"
+      clientId: "7587a506-259a-4198-bcc5-5a6d629453f0"
+      authUrl: "https://login.microsoftonline.com/common/oauth2/v2.0/authorize"
+      tokenUrl: "https://login.microsoftonline.com/common/oauth2/v2.0/token"
+    disableLoginForm: "false"
+    usersAllowSignUp: "true"
+    usersAutoAssignOrg: "true"
+    usersAutoAssignOrgRole: "Viewer"
+    serverRootUrl: "https://grafana.reondev.top"
+    serverDomain: "grafana.reondev.top"
+
+# ─────────────────────────────────────────────────────────
+#  Locust (Load Testing)
+# ─────────────────────────────────────────────────────────
+locust:
+  enabled: true
+  image: locustio/locust:2.24.1
+  replicas: 1
+  port: 8089
+  targetHost: "http://web:8000"
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 500m
+      memory: 256Mi
+
+# ─────────────────────────────────────────────────────────
+#  Traefik IngressRoute
+# ─────────────────────────────────────────────────────────
+ingress:
+  hosts:
+    app: reondev.top
+    grafana: grafana.reondev.top
+  tlsSecretName: reondev-top-tls
+  rateLimit:
+    average: 100
+    burst: 200
+    period: 1m
+
+# ─────────────────────────────────────────────────────────
+#  cert-manager
+# ─────────────────────────────────────────────────────────
+certManager:
+  email: reon@duck.com
+  issuer:
+    prod:
+      name: letsencrypt-prod
+      server: https://acme-v02.api.letsencrypt.org/directory
+    staging:
+      name: letsencrypt-staging
+      server: https://acme-staging-v02.api.letsencrypt.org/directory
+
+# ─────────────────────────────────────────────────────────
+#  Azure Key Vault — External Secrets Operator
+# ─────────────────────────────────────────────────────────
+externalSecrets:
+  enabled: true
+  keyVaultName: kv-puresecure-prod
+  tenantId: "d1d16433-e375-4076-a7ea-c57bb79df0de"
+  managedIdentityClientId: "e66581ac-15f7-4fb8-8128-1b1e05654fc2"  # Set to the Azure Managed Identity Client ID
+  secretStoreName: azure-keyvault
+  refreshInterval: 1h
+  secrets:
+    - kubeSecretKey: SERVICE_API_KEY
+      remoteRef: service-api-key
+    - kubeSecretKey: GF_ADMIN_PASSWORD
+      remoteRef: gf-admin-password
+    - kubeSecretKey: GF_AUTH_AZUREAD_CLIENT_SECRET
+      remoteRef: gf-auth-azuread-client-secret

@@ -29,7 +29,7 @@ data:
   GF_AUTH_AZUREAD_AUTO_LOGIN: "false"
   GF_AUTH_AZUREAD_SCOPES: "openid profile email User.Read"
   # Set this to your Azure AD app registration client ID
-  GF_AUTH_AZUREAD_CLIENT_ID: "your-client-id-here"
+  GF_AUTH_AZUREAD_CLIENT_ID: "7587a506-259a-4198-bcc5-5a6d629453f0"
   GF_AUTH_AZUREAD_AUTH_URL: "https://login.microsoftonline.com/common/oauth2/v2.0/authorize"
   GF_AUTH_AZUREAD_TOKEN_URL: "https://login.microsoftonline.com/common/oauth2/v2.0/token"
   # ── Disable default login form (Microsoft only) ───────

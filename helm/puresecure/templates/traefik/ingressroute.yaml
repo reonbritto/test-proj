@@ -1,0 +1,58 @@
+# -- HTTP -> HTTPS redirect
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: web-http-redirect
+  namespace: {{ .Values.namespace }}
+spec:
+  entryPoints:
+    - web
+  routes:
+    - match: Host(`{{ .Values.ingress.hosts.app }}`) || Host(`{{ .Values.ingress.hosts.grafana }}`)
+      kind: Rule
+      middlewares:
+        - name: redirect-https
+      services:
+        - name: web
+          port: {{ .Values.app.port }}
+---
+# -- Main app: {{ .Values.ingress.hosts.app }} (HTTPS)
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: web-https
+  namespace: {{ .Values.namespace }}
+spec:
+  entryPoints:
+    - websecure
+  routes:
+    - match: Host(`{{ .Values.ingress.hosts.app }}`)
+      kind: Rule
+      middlewares:
+        - name: security-headers
+        - name: rate-limit
+      services:
+        - name: web
+          port: {{ .Values.app.port }}
+  tls:
+    secretName: {{ .Values.ingress.tlsSecretName }}
+---
+# -- Grafana: {{ .Values.ingress.hosts.grafana }} (HTTPS)
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: grafana-https
+  namespace: {{ .Values.namespace }}
+spec:
+  entryPoints:
+    - websecure
+  routes:
+    - match: Host(`{{ .Values.ingress.hosts.grafana }}`)
+      kind: Rule
+      middlewares:
+        - name: security-headers
+      services:
+        - name: grafana
+          port: {{ .Values.grafana.port }}
+  tls:
+    secretName: {{ .Values.ingress.tlsSecretName }}

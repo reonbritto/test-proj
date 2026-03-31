@@ -1,41 +1,40 @@
+{{- if .Values.prometheus.enabled }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: prometheus
-  namespace: puresecure
+  namespace: {{ .Values.namespace }}
   labels:
-    app: prometheus
-    tier: monitoring
+    {{- include "puresecure.prometheus.labels" . | nindent 4 }}
 spec:
-  replicas: 1
+  replicas: {{ .Values.prometheus.replicas }}
   selector:
     matchLabels:
-      app: prometheus
+      {{- include "puresecure.prometheus.selectorLabels" . | nindent 6 }}
   template:
     metadata:
       labels:
-        app: prometheus
-        tier: monitoring
+        {{- include "puresecure.prometheus.labels" . | nindent 8 }}
     spec:
       securityContext:
-        fsGroup: 65534
+        fsGroup: {{ .Values.prometheus.securityContext.fsGroup }}
       initContainers:
         - name: fix-permissions
-          image: busybox:1.36
+          image: {{ .Values.prometheus.initImage }}
           command: ["sh", "-c", "mkdir -p /prometheus/data && chown -R 65534:65534 /prometheus"]
           volumeMounts:
             - name: prometheus-data
               mountPath: /prometheus
       containers:
         - name: prometheus
-          image: prom/prometheus:v2.51.2
+          image: {{ .Values.prometheus.image }}
           args:
             - "--config.file=/etc/prometheus/prometheus.yml"
-            - "--storage.tsdb.retention.time=15d"
+            - "--storage.tsdb.retention.time={{ .Values.prometheus.retention }}"
             - "--storage.tsdb.path=/prometheus/data"
           ports:
             - name: http
-              containerPort: 9090
+              containerPort: {{ .Values.prometheus.port }}
               protocol: TCP
           volumeMounts:
             - name: config
@@ -63,11 +62,11 @@ spec:
             periodSeconds: 10
           resources:
             requests:
-              cpu: 100m
-              memory: 256Mi
+              cpu: {{ .Values.prometheus.resources.requests.cpu }}
+              memory: {{ .Values.prometheus.resources.requests.memory }}
             limits:
-              cpu: 500m
-              memory: 1Gi
+              cpu: {{ .Values.prometheus.resources.limits.cpu }}
+              memory: {{ .Values.prometheus.resources.limits.memory }}
       volumes:
         - name: config
           configMap:
@@ -75,3 +74,4 @@ spec:
         - name: prometheus-data
           persistentVolumeClaim:
             claimName: prometheus-data-pvc
+{{- end }}

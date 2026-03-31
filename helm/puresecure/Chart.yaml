@@ -1,0 +1,14 @@
+apiVersion: v2
+name: puresecure
+description: PureSecure CVE Explorer - Security Vulnerability Database
+type: application
+version: 1.0.0
+appVersion: "2.0.0"
+maintainers:
+  - name: PureSecure Team
+    email: admin@reondev.top
+keywords:
+  - cve
+  - security
+  - vulnerability
+  - fastapi

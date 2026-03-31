@@ -1,0 +1,35 @@
+# -- ArgoCD HTTP -> HTTPS redirect
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: argocd-http-redirect
+  namespace: argocd
+spec:
+  entryPoints:
+    - web
+  routes:
+    - match: Host(`argocd.reondev.top`)
+      kind: Rule
+
+      services:
+        - name: argocd-server
+          port: 80
+---
+# -- ArgoCD HTTPS IngressRoute
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: argocd-https
+  namespace: argocd
+spec:
+  entryPoints:
+    - websecure
+  routes:
+    - match: Host(`argocd.reondev.top`)
+      kind: Rule
+
+      services:
+        - name: argocd-server
+          port: 80
+  tls:
+    secretName: argocd-tls
