@@ -16,16 +16,16 @@ In standard server deployments, an engineer often logs into a server and types `
 ```mermaid
 graph TD
     subgraph "Phase 1: CI (GitHub Actions)"
-        Code[Developer pushes code to main] --> Lint[Linters & Security Scans (Trivy)]
-        Lint --> Build[Build & Tag Docker Image]
-        Build --> Registry[(Pushed to DockerHub)]
-        Build --> UpdateValues[GitHub Action edits values.yaml with new tag]
-        UpdateValues --> GitRepo[(Commits to Git Repository)]
+        Code["Developer pushes code to main"] --> Lint["Linters & Security Scans (Trivy)"]
+        Lint --> Build["Build & Tag Docker Image"]
+        Build --> Registry[("Pushed to DockerHub")]
+        Build --> UpdateValues["GitHub Action edits values.yaml with new tag"]
+        UpdateValues --> GitRepo[("Commits to Git Repository")]
     end
 
     subgraph "Phase 2: CD (ArgoCD inside Kubernetes)"
-        GitRepo -->|ArgoCD detects configuration drift| ArgoCD[ArgoCD Controller]
-        ArgoCD -->|Applies new Helm templates| K8s[AKS Cluster]
+        GitRepo -->|"ArgoCD detects configuration drift"| ArgoCD["ArgoCD Controller"]
+        ArgoCD -->|"Applies new Helm templates"| K8s["AKS Cluster"]
     end
 ```
 
