@@ -32,6 +32,34 @@ data:
                 }
             },
             {
+                "title": "Signed In As",
+                "description": "The currently authenticated Grafana user viewing this dashboard.",
+                "type": "text",
+                "gridPos": {"h": 2, "w": 8, "x": 0, "y": 2},
+                "options": {
+                    "mode": "markdown",
+                    "content": "👤 **${__user.login}** &nbsp;·&nbsp; ${__user.email}"
+                }
+            },
+            {
+                "title": "Dashboard",
+                "type": "text",
+                "gridPos": {"h": 2, "w": 8, "x": 8, "y": 2},
+                "options": {
+                    "mode": "markdown",
+                    "content": "📋 **CWE Explorer — API Monitoring** &nbsp;·&nbsp; Auto-refresh: ${__dashboard.refresh}"
+                }
+            },
+            {
+                "title": "Time Range",
+                "type": "text",
+                "gridPos": {"h": 2, "w": 8, "x": 16, "y": 2},
+                "options": {
+                    "mode": "markdown",
+                    "content": "🕒 **${__from:date:YYYY-MM-DD HH:mm}** → **${__to:date:HH:mm}**"
+                }
+            },
+            {
                 "title": "Total Requests Served",
                 "description": "The total number of HTTP requests the API has handled since it started.",
                 "type": "stat",
@@ -39,7 +67,7 @@ data:
                     "h": 5,
                     "w": 6,
                     "x": 0,
-                    "y": 2
+                    "y": 4
                 },
                 "datasource": {
                     "type": "prometheus",
@@ -83,7 +111,7 @@ data:
                     "h": 5,
                     "w": 6,
                     "x": 6,
-                    "y": 2
+                    "y": 4
                 },
                 "datasource": {
                     "type": "prometheus",
@@ -127,7 +155,7 @@ data:
                     "h": 5,
                     "w": 6,
                     "x": 12,
-                    "y": 2
+                    "y": 4
                 },
                 "datasource": {
                     "type": "prometheus",
@@ -171,7 +199,7 @@ data:
                     "h": 5,
                     "w": 6,
                     "x": 18,
-                    "y": 2
+                    "y": 4
                 },
                 "datasource": {
                     "type": "prometheus",
@@ -214,7 +242,7 @@ data:
                     "h": 2,
                     "w": 24,
                     "x": 0,
-                    "y": 7
+                    "y": 9
                 },
                 "options": {
                     "mode": "markdown",
@@ -229,7 +257,7 @@ data:
                     "h": 8,
                     "w": 12,
                     "x": 0,
-                    "y": 9
+                    "y": 11
                 },
                 "datasource": {
                     "type": "prometheus",
@@ -278,7 +306,7 @@ data:
                     "h": 8,
                     "w": 12,
                     "x": 12,
-                    "y": 9
+                    "y": 11
                 },
                 "datasource": {
                     "type": "prometheus",
@@ -325,7 +353,7 @@ data:
                     "h": 8,
                     "w": 8,
                     "x": 0,
-                    "y": 17
+                    "y": 19
                 },
                 "datasource": {
                     "type": "prometheus",
@@ -361,7 +389,7 @@ data:
                     "h": 8,
                     "w": 8,
                     "x": 8,
-                    "y": 17
+                    "y": 19
                 },
                 "datasource": {
                     "type": "prometheus",
@@ -397,7 +425,7 @@ data:
                     "h": 8,
                     "w": 8,
                     "x": 16,
-                    "y": 17
+                    "y": 19
                 },
                 "datasource": {
                     "type": "prometheus",
@@ -432,7 +460,7 @@ data:
                     "h": 2,
                     "w": 24,
                     "x": 0,
-                    "y": 25
+                    "y": 27
                 },
                 "options": {
                     "mode": "markdown",
@@ -447,7 +475,7 @@ data:
                     "h": 8,
                     "w": 12,
                     "x": 0,
-                    "y": 27
+                    "y": 29
                 },
                 "datasource": {
                     "type": "prometheus",
@@ -548,7 +576,7 @@ data:
                     "h": 8,
                     "w": 12,
                     "x": 12,
-                    "y": 27
+                    "y": 29
                 },
                 "datasource": {
                     "type": "prometheus",
@@ -593,7 +621,7 @@ data:
                     "h": 8,
                     "w": 12,
                     "x": 0,
-                    "y": 35
+                    "y": 37
                 },
                 "datasource": {
                     "type": "prometheus",
@@ -645,7 +673,7 @@ data:
                     "h": 8,
                     "w": 12,
                     "x": 12,
-                    "y": 35
+                    "y": 37
                 },
                 "datasource": {
                     "type": "prometheus",
@@ -676,7 +704,7 @@ data:
                     "h": 2,
                     "w": 24,
                     "x": 0,
-                    "y": 43
+                    "y": 45
                 },
                 "options": {
                     "mode": "markdown",
@@ -691,7 +719,7 @@ data:
                     "h": 8,
                     "w": 12,
                     "x": 0,
-                    "y": 45
+                    "y": 47
                 },
                 "datasource": {
                     "type": "prometheus",
@@ -733,7 +761,7 @@ data:
                     "h": 8,
                     "w": 12,
                     "x": 12,
-                    "y": 45
+                    "y": 47
                 },
                 "datasource": {
                     "type": "prometheus",
@@ -796,7 +824,7 @@ data:
                     "h": 2,
                     "w": 24,
                     "x": 0,
-                    "y": 53
+                    "y": 55
                 },
                 "options": {
                     "mode": "markdown",
@@ -811,7 +839,7 @@ data:
                     "h": 10,
                     "w": 24,
                     "x": 0,
-                    "y": 55
+                    "y": 57
                 },
                 "datasource": {
                     "type": "prometheus",
@@ -1003,6 +1031,56 @@ data:
         },
         "title": "CWE Explorer — API Monitoring",
         "uid": "cwe-explorer-api",
-        "version": 3
+        "version": 4
+    }
+  infrastructure.json: |
+    {
+        "annotations": {"list": []},
+        "editable": true,
+        "fiscalYearStartMonth": 0,
+        "graphTooltip": 1,
+        "links": [{"title": "API Monitoring", "url": "/d/cwe-explorer-api", "type": "link", "icon": "external link", "targetBlank": false}],
+        "panels": [
+            {"title": "", "type": "text", "gridPos": {"h": 2, "w": 24, "x": 0, "y": 0}, "options": {"mode": "markdown", "content": "# \ud83d\udda5\ufe0f Infrastructure Overview"}},
+            {"title": "Signed In As", "type": "text", "gridPos": {"h": 2, "w": 8, "x": 0, "y": 2}, "options": {"mode": "markdown", "content": "\ud83d\udc64 **${__user.login}** &nbsp;\u00b7&nbsp; ${__user.email}"}},
+            {"title": "Dashboard", "type": "text", "gridPos": {"h": 2, "w": 8, "x": 8, "y": 2}, "options": {"mode": "markdown", "content": "\ud83d\udccb **PureSecure \u2014 Infrastructure Monitoring** &nbsp;\u00b7&nbsp; Auto-refresh: ${__dashboard.refresh}"}},
+            {"title": "Time Range", "type": "text", "gridPos": {"h": 2, "w": 8, "x": 16, "y": 2}, "options": {"mode": "markdown", "content": "\ud83d\udd52 **${__from:date:YYYY-MM-DD HH:mm}** \u2192 **${__to:date:HH:mm}**"}},
+            {"title": "Node CPU Usage", "description": "CPU utilisation across all cluster nodes.", "type": "stat", "gridPos": {"h": 4, "w": 4, "x": 0, "y": 4}, "datasource": {"type": "prometheus", "uid": "prometheus"}, "targets": [{"expr": "100 - (avg by (instance) (rate(node_cpu_seconds_total{mode=\"idle\",job=\"node-exporter\"}[5m])) * 100)", "legendFormat": "CPU %", "refId": "A"}], "fieldConfig": {"defaults": {"unit": "percent", "min": 0, "max": 100, "color": {"mode": "thresholds"}, "thresholds": {"steps": [{"color": "#73BF69", "value": null}, {"color": "#FF9830", "value": 70}, {"color": "#F2495C", "value": 85}]}}, "overrides": []}, "options": {"colorMode": "background", "graphMode": "area", "textMode": "value_and_name"}},
+            {"title": "Node Memory Usage", "description": "Percentage of physical memory in use.", "type": "stat", "gridPos": {"h": 4, "w": 4, "x": 4, "y": 4}, "datasource": {"type": "prometheus", "uid": "prometheus"}, "targets": [{"expr": "100 * (1 - (node_memory_MemAvailable_bytes{job=\"node-exporter\"} / node_memory_MemTotal_bytes{job=\"node-exporter\"}))", "legendFormat": "Mem %", "refId": "A"}], "fieldConfig": {"defaults": {"unit": "percent", "min": 0, "max": 100, "color": {"mode": "thresholds"}, "thresholds": {"steps": [{"color": "#73BF69", "value": null}, {"color": "#FF9830", "value": 75}, {"color": "#F2495C", "value": 90}]}}, "overrides": []}, "options": {"colorMode": "background", "graphMode": "area", "textMode": "value_and_name"}},
+            {"title": "Root Disk Usage", "description": "Disk space used on the root filesystem.", "type": "stat", "gridPos": {"h": 4, "w": 4, "x": 8, "y": 4}, "datasource": {"type": "prometheus", "uid": "prometheus"}, "targets": [{"expr": "100 - (node_filesystem_avail_bytes{job=\"node-exporter\",mountpoint=\"/\",fstype!=\"tmpfs\"} / node_filesystem_size_bytes{job=\"node-exporter\",mountpoint=\"/\",fstype!=\"tmpfs\"} * 100)", "legendFormat": "Disk %", "refId": "A"}], "fieldConfig": {"defaults": {"unit": "percent", "min": 0, "max": 100, "color": {"mode": "thresholds"}, "thresholds": {"steps": [{"color": "#73BF69", "value": null}, {"color": "#FF9830", "value": 70}, {"color": "#F2495C", "value": 85}]}}, "overrides": []}, "options": {"colorMode": "background", "graphMode": "none", "textMode": "value_and_name"}},
+            {"title": "Running Pods", "description": "Pods in Running state in the puresecure namespace.", "type": "stat", "gridPos": {"h": 4, "w": 4, "x": 12, "y": 4}, "datasource": {"type": "prometheus", "uid": "prometheus"}, "targets": [{"expr": "count(kube_pod_status_phase{namespace=\"puresecure\",phase=\"Running\",job=\"kube-state-metrics\"})", "legendFormat": "Running", "refId": "A"}], "fieldConfig": {"defaults": {"color": {"mode": "thresholds"}, "thresholds": {"steps": [{"color": "#73BF69", "value": null}]}, "unit": "short"}, "overrides": []}, "options": {"colorMode": "background", "graphMode": "none", "textMode": "value_and_name"}},
+            {"title": "Redis Memory Usage", "description": "Current memory consumed by Redis.", "type": "stat", "gridPos": {"h": 4, "w": 4, "x": 16, "y": 4}, "datasource": {"type": "prometheus", "uid": "prometheus"}, "targets": [{"expr": "redis_memory_used_bytes{job=\"redis\"}", "legendFormat": "Used", "refId": "A"}], "fieldConfig": {"defaults": {"unit": "bytes", "color": {"mode": "thresholds"}, "thresholds": {"steps": [{"color": "#73BF69", "value": null}, {"color": "#FF9830", "value": 100000000}, {"color": "#F2495C", "value": 120000000}]}}, "overrides": []}, "options": {"colorMode": "background", "graphMode": "area", "textMode": "value_and_name"}},
+            {"title": "Redis Connected Clients", "description": "Active client connections to Redis.", "type": "stat", "gridPos": {"h": 4, "w": 4, "x": 20, "y": 4}, "datasource": {"type": "prometheus", "uid": "prometheus"}, "targets": [{"expr": "redis_connected_clients{job=\"redis\"}", "legendFormat": "Clients", "refId": "A"}], "fieldConfig": {"defaults": {"unit": "short", "color": {"mode": "thresholds"}, "thresholds": {"steps": [{"color": "#73BF69", "value": null}, {"color": "#FF9830", "value": 50}, {"color": "#F2495C", "value": 100}]}}, "overrides": []}, "options": {"colorMode": "background", "graphMode": "none", "textMode": "value_and_name"}},
+            {"title": "", "type": "text", "gridPos": {"h": 2, "w": 24, "x": 0, "y": 8}, "options": {"mode": "markdown", "content": "# \u2699\ufe0f Node Resources"}},
+            {"title": "Node CPU Usage Over Time", "description": "Per-node CPU utilisation over time.", "type": "timeseries", "gridPos": {"h": 8, "w": 12, "x": 0, "y": 10}, "datasource": {"type": "prometheus", "uid": "prometheus"}, "targets": [{"expr": "infra:node_cpu_usage:percent5m", "legendFormat": "{{instance}}", "refId": "A"}], "fieldConfig": {"defaults": {"unit": "percent", "min": 0, "max": 100, "color": {"mode": "palette-classic"}, "custom": {"lineWidth": 2, "fillOpacity": 15}}, "overrides": []}, "options": {"legend": {"displayMode": "table", "placement": "bottom", "calcs": ["mean", "max"]}}},
+            {"title": "Node Memory Usage Over Time", "description": "Per-node memory utilisation.", "type": "timeseries", "gridPos": {"h": 8, "w": 12, "x": 12, "y": 10}, "datasource": {"type": "prometheus", "uid": "prometheus"}, "targets": [{"expr": "infra:node_memory_usage:percent", "legendFormat": "{{instance}}", "refId": "A"}], "fieldConfig": {"defaults": {"unit": "percent", "min": 0, "max": 100, "color": {"mode": "palette-classic"}, "custom": {"lineWidth": 2, "fillOpacity": 15}}, "overrides": []}, "options": {"legend": {"displayMode": "table", "placement": "bottom", "calcs": ["mean", "max"]}}},
+            {"title": "Network I/O \u2014 Receive", "description": "Bytes per second received per node.", "type": "timeseries", "gridPos": {"h": 8, "w": 12, "x": 0, "y": 18}, "datasource": {"type": "prometheus", "uid": "prometheus"}, "targets": [{"expr": "infra:node_network_rx:rate5m", "legendFormat": "{{instance}} rx", "refId": "A"}], "fieldConfig": {"defaults": {"unit": "Bps", "color": {"mode": "palette-classic"}, "custom": {"lineWidth": 2, "fillOpacity": 10}}, "overrides": []}, "options": {"legend": {"displayMode": "table", "placement": "bottom", "calcs": ["mean", "max"]}}},
+            {"title": "Network I/O \u2014 Transmit", "description": "Bytes per second transmitted per node.", "type": "timeseries", "gridPos": {"h": 8, "w": 12, "x": 12, "y": 18}, "datasource": {"type": "prometheus", "uid": "prometheus"}, "targets": [{"expr": "infra:node_network_tx:rate5m", "legendFormat": "{{instance}} tx", "refId": "A"}], "fieldConfig": {"defaults": {"unit": "Bps", "color": {"mode": "palette-classic"}, "custom": {"lineWidth": 2, "fillOpacity": 10}}, "overrides": []}, "options": {"legend": {"displayMode": "table", "placement": "bottom", "calcs": ["mean", "max"]}}},
+            {"title": "Disk I/O \u2014 Read", "description": "Disk read throughput per node.", "type": "timeseries", "gridPos": {"h": 8, "w": 12, "x": 0, "y": 26}, "datasource": {"type": "prometheus", "uid": "prometheus"}, "targets": [{"expr": "sum by (instance) (rate(node_disk_read_bytes_total{job=\"node-exporter\"}[5m]))", "legendFormat": "{{instance}} read", "refId": "A"}], "fieldConfig": {"defaults": {"unit": "Bps", "color": {"mode": "palette-classic"}, "custom": {"lineWidth": 2, "fillOpacity": 10}}, "overrides": []}, "options": {"legend": {"displayMode": "table", "placement": "bottom", "calcs": ["mean", "max"]}}},
+            {"title": "Disk I/O \u2014 Write", "description": "Disk write throughput per node.", "type": "timeseries", "gridPos": {"h": 8, "w": 12, "x": 12, "y": 26}, "datasource": {"type": "prometheus", "uid": "prometheus"}, "targets": [{"expr": "sum by (instance) (rate(node_disk_written_bytes_total{job=\"node-exporter\"}[5m]))", "legendFormat": "{{instance}} write", "refId": "A"}], "fieldConfig": {"defaults": {"unit": "Bps", "color": {"mode": "palette-classic"}, "custom": {"lineWidth": 2, "fillOpacity": 10}}, "overrides": []}, "options": {"legend": {"displayMode": "table", "placement": "bottom", "calcs": ["mean", "max"]}}},
+            {"title": "", "type": "text", "gridPos": {"h": 2, "w": 24, "x": 0, "y": 34}, "options": {"mode": "markdown", "content": "# \ud83d\udc33 Kubernetes \u2014 Pod & Container Health"}},
+            {"title": "Pod Status \u2014 puresecure namespace", "description": "Current phase of every pod.", "type": "table", "gridPos": {"h": 8, "w": 12, "x": 0, "y": 36}, "datasource": {"type": "prometheus", "uid": "prometheus"}, "targets": [{"expr": "kube_pod_status_phase{namespace=\"puresecure\",job=\"kube-state-metrics\"}", "legendFormat": "", "refId": "A", "format": "table", "instant": true}], "transformations": [{"id": "merge", "options": {}}, {"id": "organize", "options": {"excludeByName": {"Time": true, "__name__": true, "job": true}, "renameByName": {"pod": "Pod", "phase": "Phase", "namespace": "Namespace", "Value": "Active"}, "indexByName": {"Namespace": 0, "Pod": 1, "Phase": 2, "Active": 3}}}], "fieldConfig": {"defaults": {}, "overrides": [{"matcher": {"id": "byName", "options": "Phase"}, "properties": [{"id": "mappings", "value": [{"type": "value", "options": {"Running": {"text": "Running \u2705", "color": "green"}, "Pending": {"text": "Pending \u23f3", "color": "orange"}, "Failed": {"text": "Failed \ud83d\udd34", "color": "red"}, "Unknown": {"text": "Unknown \u2753", "color": "gray"}}}]}]}]}, "options": {"showHeader": true}},
+            {"title": "Container Restarts (last 1h)", "description": "Number of container restarts. Any non-zero value deserves investigation.", "type": "bargauge", "gridPos": {"h": 8, "w": 12, "x": 12, "y": 36}, "datasource": {"type": "prometheus", "uid": "prometheus"}, "targets": [{"expr": "infra:container_restarts:rate1h", "legendFormat": "{{pod}} / {{container}}", "refId": "A"}], "fieldConfig": {"defaults": {"unit": "short", "color": {"mode": "thresholds"}, "thresholds": {"steps": [{"color": "green", "value": null}, {"color": "orange", "value": 1}, {"color": "red", "value": 3}]}}, "overrides": []}, "options": {"displayMode": "gradient", "orientation": "horizontal", "showUnfilled": true}},
+            {"title": "", "type": "text", "gridPos": {"h": 2, "w": 24, "x": 0, "y": 44}, "options": {"mode": "markdown", "content": "# \ud83d\uddc4\ufe0f Redis Cache"}},
+            {"title": "Redis Memory Used vs Max", "description": "Memory used vs 128 MiB limit.", "type": "timeseries", "gridPos": {"h": 8, "w": 12, "x": 0, "y": 46}, "datasource": {"type": "prometheus", "uid": "prometheus"}, "targets": [{"expr": "redis_memory_used_bytes{job=\"redis\"}", "legendFormat": "Used", "refId": "A"}, {"expr": "redis_memory_max_bytes{job=\"redis\"}", "legendFormat": "Max (128 MiB)", "refId": "B"}], "fieldConfig": {"defaults": {"unit": "bytes", "color": {"mode": "palette-classic"}, "custom": {"lineWidth": 2, "fillOpacity": 10}}, "overrides": []}, "options": {"legend": {"displayMode": "table", "placement": "bottom", "calcs": ["mean", "max"]}}},
+            {"title": "Redis Operations Per Second", "description": "Commands processed per second.", "type": "timeseries", "gridPos": {"h": 8, "w": 12, "x": 12, "y": 46}, "datasource": {"type": "prometheus", "uid": "prometheus"}, "targets": [{"expr": "infra:redis_ops:rate1m", "legendFormat": "ops/s", "refId": "A"}], "fieldConfig": {"defaults": {"unit": "ops", "color": {"fixedColor": "#73BF69", "mode": "fixed"}, "custom": {"lineWidth": 2, "fillOpacity": 20}}, "overrides": []}, "options": {"legend": {"displayMode": "table", "placement": "bottom", "calcs": ["mean", "max"]}}},
+            {"title": "Redis Cache Hit Rate", "description": "Hit ratio. Below 90% means the cache is not being used effectively.", "type": "timeseries", "gridPos": {"h": 8, "w": 12, "x": 0, "y": 54}, "datasource": {"type": "prometheus", "uid": "prometheus"}, "targets": [{"expr": "infra:redis_hit_rate:5m", "legendFormat": "Hit Rate", "refId": "A"}], "fieldConfig": {"defaults": {"unit": "percentunit", "min": 0, "max": 1, "color": {"mode": "thresholds"}, "custom": {"lineWidth": 2, "fillOpacity": 20}, "thresholds": {"steps": [{"color": "#F2495C", "value": null}, {"color": "#FF9830", "value": 0.8}, {"color": "#73BF69", "value": 0.9}]}}, "overrides": []}, "options": {"legend": {"displayMode": "table", "placement": "bottom", "calcs": ["mean", "last"]}}},
+            {"title": "Redis Keyspace \u2014 Keys Stored", "description": "Total keys in Redis.", "type": "timeseries", "gridPos": {"h": 8, "w": 12, "x": 12, "y": 54}, "datasource": {"type": "prometheus", "uid": "prometheus"}, "targets": [{"expr": "sum(redis_db_keys{job=\"redis\"})", "legendFormat": "Keys", "refId": "A"}, {"expr": "sum(redis_db_keys_expiring{job=\"redis\"})", "legendFormat": "Expiring Keys", "refId": "B"}], "fieldConfig": {"defaults": {"unit": "short", "color": {"mode": "palette-classic"}, "custom": {"lineWidth": 2, "fillOpacity": 10}}, "overrides": []}, "options": {"legend": {"displayMode": "table", "placement": "bottom", "calcs": ["last"]}}},
+            {"title": "Redis Evicted & Expired Keys", "description": "LRU evictions vs TTL expirations.", "type": "timeseries", "gridPos": {"h": 8, "w": 12, "x": 0, "y": 62}, "datasource": {"type": "prometheus", "uid": "prometheus"}, "targets": [{"expr": "infra:redis_evictions:rate5m", "legendFormat": "Evicted/s (LRU)", "refId": "A"}, {"expr": "rate(redis_expired_keys_total{job=\"redis\"}[5m])", "legendFormat": "Expired/s (TTL)", "refId": "B"}], "fieldConfig": {"defaults": {"unit": "ops", "color": {"mode": "palette-classic"}, "custom": {"lineWidth": 2, "fillOpacity": 15}}, "overrides": [{"matcher": {"id": "byName", "options": "Evicted/s (LRU)"}, "properties": [{"id": "color", "value": {"fixedColor": "#F2495C", "mode": "fixed"}}]}]}, "options": {"legend": {"displayMode": "table", "placement": "bottom", "calcs": ["mean", "max"]}}},
+            {"title": "Redis Uptime", "description": "Time since Redis last restarted.", "type": "stat", "gridPos": {"h": 8, "w": 12, "x": 12, "y": 62}, "datasource": {"type": "prometheus", "uid": "prometheus"}, "targets": [{"expr": "redis_uptime_in_seconds{job=\"redis\"}", "legendFormat": "Uptime", "refId": "A"}], "fieldConfig": {"defaults": {"unit": "s", "color": {"mode": "thresholds"}, "thresholds": {"steps": [{"color": "#F2495C", "value": null}, {"color": "#FF9830", "value": 300}, {"color": "#73BF69", "value": 3600}]}}, "overrides": []}, "options": {"colorMode": "background", "graphMode": "area", "textMode": "value_and_name"}},
+            {"title": "", "type": "text", "gridPos": {"h": 2, "w": 24, "x": 0, "y": 70}, "options": {"mode": "markdown", "content": "# \ud83d\udd2d Prometheus & Alertmanager Health"}},
+            {"title": "Prometheus Scrape Duration", "description": "Time taken to scrape each target.", "type": "timeseries", "gridPos": {"h": 8, "w": 12, "x": 0, "y": 72}, "datasource": {"type": "prometheus", "uid": "prometheus"}, "targets": [{"expr": "scrape_duration_seconds", "legendFormat": "{{job}}", "refId": "A"}], "fieldConfig": {"defaults": {"unit": "s", "color": {"mode": "palette-classic"}, "custom": {"lineWidth": 2, "fillOpacity": 10}}, "overrides": []}, "options": {"legend": {"displayMode": "table", "placement": "bottom", "calcs": ["mean", "max"]}}},
+            {"title": "Alertmanager — Alerts Firing", "description": "Alerts currently in firing state.", "type": "stat", "gridPos": {"h": 6, "w": 8, "x": 12, "y": 72}, "datasource": {"type": "prometheus", "uid": "prometheus"}, "targets": [{"expr": "sum(alertmanager_alerts{state=\"active\",job=\"alertmanager\"})", "legendFormat": "Firing", "refId": "A"}], "fieldConfig": {"defaults": {"unit": "short", "color": {"mode": "thresholds"}, "thresholds": {"steps": [{"color": "#73BF69", "value": null}, {"color": "#FF9830", "value": 1}, {"color": "#F2495C", "value": 5}]}}, "overrides": []}, "options": {"colorMode": "background", "graphMode": "none", "textMode": "value_and_name"}},
+            {"title": "Alertmanager — Failed Notifications", "description": "Notifications that failed to deliver.", "type": "stat", "gridPos": {"h": 6, "w": 8, "x": 20, "y": 72}, "datasource": {"type": "prometheus", "uid": "prometheus"}, "targets": [{"expr": "sum(increase(alertmanager_notifications_failed_total{job=\"alertmanager\"}[1h]))", "legendFormat": "Failed (1h)", "refId": "A"}], "fieldConfig": {"defaults": {"unit": "short", "color": {"mode": "thresholds"}, "thresholds": {"steps": [{"color": "#73BF69", "value": null}, {"color": "#F2495C", "value": 1}]}}, "overrides": []}, "options": {"colorMode": "background", "graphMode": "none", "textMode": "value_and_name"}}
+        ],
+        "schemaVersion": 39,
+        "tags": ["infrastructure", "kubernetes", "redis", "node-exporter"],
+        "templating": {"list": []},
+        "time": {"from": "now-1h", "to": "now"},
+        "refresh": "30s",
+        "timepicker": {"refresh_intervals": ["10s", "30s", "1m", "5m", "15m"]},
+        "title": "PureSecure \u2014 Infrastructure Monitoring",
+        "uid": "puresecure-infra",
+        "version": 1
     }
 {{- end }}

@@ -1,5 +1,5 @@
 # ─────────────────────────────────────────────────────────
-#  PureSecure CVE Explorer — Helm Chart Values
+#  PureSecure CWE Explorer — Helm Chart Values
 # ─────────────────────────────────────────────────────────
 
 # -- Global
@@ -11,7 +11,7 @@ domain: reondev.top
 app:
   name: cwe-explorer
   image:
-    repository: reonbritto/puresecure-cve-explorer
+    repository: reonbritto/puresecure-cwe-explorer
     tag: "d6b0eef" # CI will auto-update this with the git SHA
     pullPolicy: Always
   replicas: 1
@@ -46,11 +46,73 @@ app:
   config:
     PYTHONUNBUFFERED: "1"
     CORS_ORIGINS: "https://reondev.top"
+    REDIS_URL: "redis://redis:6379/0"
+    MAX_CONCURRENT_USERS: "3"
+    USER_SESSION_TTL: "1800"
     GRAFANA_URL: "https://grafana.reondev.top"
     ARGOCD_URL: "https://argocd.reondev.top"
     PROMETHEUS_URL: "http://prometheus:9090"
     LOCUST_URL: "http://locust:8089"
     ALERTMANAGER_URL: "http://alertmanager:9093"
+# ─────────────────────────────────────────────────────────
+#  Redis (Cache + Concurrent User Tracking)
+# ─────────────────────────────────────────────────────────
+redis:
+  enabled: true
+  image: redis:7-alpine
+  replicas: 1
+  port: 6379
+  maxmemory: "128mb"
+  maxmemoryPolicy: "allkeys-lru"
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 250m
+      memory: 192Mi
+# ─────────────────────────────────────────────────────────
+#  Redis Exporter (exposes Redis metrics to Prometheus)
+# ─────────────────────────────────────────────────────────
+redisExporter:
+  enabled: true
+  image: oliver006/redis_exporter:v1.61.0
+  port: 9121
+  resources:
+    requests:
+      cpu: 20m
+      memory: 32Mi
+    limits:
+      cpu: 100m
+      memory: 64Mi
+# ─────────────────────────────────────────────────────────
+#  Node Exporter (OS-level metrics: CPU, memory, disk, network)
+# ─────────────────────────────────────────────────────────
+nodeExporter:
+  enabled: true
+  image: prom/node-exporter:v1.8.0
+  port: 9100
+  resources:
+    requests:
+      cpu: 20m
+      memory: 32Mi
+    limits:
+      cpu: 100m
+      memory: 64Mi
+# ─────────────────────────────────────────────────────────
+#  Kube State Metrics (Kubernetes object metrics)
+# ─────────────────────────────────────────────────────────
+kubeStateMetrics:
+  enabled: true
+  image: registry.k8s.io/kube-state-metrics/kube-state-metrics:v2.12.0
+  port: 8080
+  resources:
+    requests:
+      cpu: 20m
+      memory: 64Mi
+    limits:
+      cpu: 100m
+      memory: 128Mi
 # ─────────────────────────────────────────────────────────
 #  Prometheus
 # ─────────────────────────────────────────────────────────

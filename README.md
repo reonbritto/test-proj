@@ -1,6 +1,6 @@
 <div align="center">
 
-# PureSecure CVE Explorer
+# PureSecure CWE Explorer
 
 **A production-grade security intelligence platform for browsing, searching, and analysing CVE & CWE vulnerability data — with real-time observability, GitOps deployment, and Microsoft Entra ID authentication.**
 
@@ -20,7 +20,7 @@
 
 ## What is this?
 
-PureSecure CVE Explorer queries the **NIST National Vulnerability Database (NVD) API 2.0** in real-time and provides a clean, searchable interface for security professionals to:
+PureSecure CWE Explorer queries the **NIST National Vulnerability Database (NVD) API 2.0** in real-time and provides a clean, searchable interface for security professionals to:
 
 - Browse and search **CVEs** (Common Vulnerabilities and Exposures) with CVSS severity scores
 - Explore **CWE** (Common Weakness Enumeration) definitions — 969+ weaknesses from the official MITRE XML dataset
@@ -67,7 +67,7 @@ graph TB
             AUTH["🔒 auth.py\nJWT Validation"]
             NVD_C["🌐 nvd_client.py\nRate-limited HTTP"]
             CWE_P["📂 cwe_parser.py\nXML Parser"]
-            CACHE["💾 cache.py\nSQLite TTL Cache"]
+            CACHE["💾 cache.py\nRedis TTL Cache"]
             SEC["🛡️ security.py\nInput Validation"]
             METRICS_M["📊 metrics.py\nPrometheus Middleware"]
         end
@@ -79,7 +79,7 @@ graph TB
             LOCUST["🦗 Locust :8089\nLoad Testing"]
         end
 
-        DB[("🗄️ SQLite\ncache.db · 24h TTL")]
+        REDIS[("🟥 Redis\nCache + User Tracking")]
     end
 
     USER -- "🔐 HTTPS / Bearer JWT" --> MAIN
@@ -88,7 +88,7 @@ graph TB
     USER -- "login" --> OAUTH
     NVD_C -- "⏱️ rate-limited 6s" --> NVDAPI
     CWE_P -- "startup" --> MITRE
-    NVD_C & CWE_P --> CACHE --> DB
+    NVD_C & CWE_P --> CACHE --> REDIS
     METRICS_M -- "/metrics" --> PROM
     PROM --> GRAF & ALERT
     ALERT -- "📧 email alert" --> USER
@@ -110,7 +110,7 @@ graph TB
     style GRAF fill:#b45309,stroke:#f59e0b,color:#fff
     style ALERT fill:#991b1b,stroke:#ef4444,color:#fff
     style LOCUST fill:#1e40af,stroke:#3b82f6,color:#fff
-    style DB fill:#374151,stroke:#6b7280,color:#fff
+    style REDIS fill:#991b1b,stroke:#ef4444,color:#fff
 ```
 
 ### Production Deployment (AKS + GitOps)
@@ -222,7 +222,7 @@ sequenceDiagram
 | **CWE Browsing** | 969+ MITRE definitions — consequences, mitigations, detection methods, taxonomy |
 | **Analytics** | Top CWEs by CVE count, composite risk scoring (frequency × severity) |
 | **Authentication** | Microsoft Entra ID (Azure AD) JWT — supports Work + Personal Microsoft accounts |
-| **Caching** | SQLite with 24h TTL, WAL mode for concurrent reads, startup cleanup |
+| **Caching** | Redis with 24h TTL, concurrent user tracking (max 3 configurable), LRU eviction |
 | **Monitoring** | Prometheus metrics, 17 recording rules, 11 alerting rules, Grafana dashboard (18 panels) |
 | **Alerting** | Alertmanager → Gmail SMTP → email for critical/warning severity alerts |
 | **Load Testing** | Locust scenarios covering all endpoints with weighted traffic distribution |
@@ -242,7 +242,7 @@ sequenceDiagram
 | **API Framework** | FastAPI 0.135 + Uvicorn |
 | **HTTP Client** | httpx (async) |
 | **Data Validation** | Pydantic v2 |
-| **Cache** | SQLite3 (WAL mode) |
+| **Cache** | Redis 7 (TTL-based keys, LRU eviction) |
 | **Auth** | Microsoft Entra ID — PyJWT + JWKS |
 | **Metrics** | prometheus-client (Counter / Histogram / Gauge) |
 | **Monitoring** | Prometheus v2.51.2 + Grafana 10.4.2 |
@@ -324,7 +324,7 @@ cve-new-bri/
 │   ├── metrics.py                # Prometheus middleware (counter/histogram/gauge)
 │   ├── nvd_client.py             # NVD API 2.0 client (async, rate-limited)
 │   ├── cwe_parser.py             # MITRE CWE XML parser (969+ weaknesses)
-│   ├── cache.py                  # SQLite cache (WAL mode, 24h TTL)
+│   ├── cache.py                  # Redis cache (24h TTL, concurrent user enforcement)
 │   ├── analytics.py              # Risk scoring, top-CWE aggregation
 │   ├── security.py               # Input validation (CVE/CWE regex, sanitization)
 │   ├── models.py                 # Pydantic models (CVEDetail, CWEEntry, etc.)
@@ -433,8 +433,10 @@ curl -H "Authorization: Bearer $TOKEN" \
   "cache": {
     "cve_entries": 42,
     "search_entries": 8,
-    "db_size_bytes": 462848
-  }
+    "redis_used_memory_bytes": 1048576
+  },
+  "active_users": 1,
+  "max_concurrent_users": 3
 }
 ```
 
@@ -492,16 +494,16 @@ graph LR
     CORS["🛡️ CORS\nOrigin Allowlist\nGET-only"]
     JWT["🔐 JWT Validation\nRS256 · JWKS cached 1h\nAudience check"]
     INPUT["🔍 Input Validation\nCVE regex · CWE regex\n200-char limit · allowlist"]
-    SQL["💾 Cache Layer\nParameterised SQL\nNo injection possible"]
+    RDS["💾 Redis Cache\nKey-value store\nNo SQL injection"]
     NVD(["✅ NVD API\nRate limited · 6s\nSafe external call"])
 
-    REQ --> CORS --> JWT --> INPUT --> SQL --> NVD
+    REQ --> CORS --> JWT --> INPUT --> RDS --> NVD
 
     style REQ fill:#1e293b,stroke:#94a3b8,color:#e2e8f0
     style CORS fill:#5b21b6,stroke:#a78bfa,color:#fff
     style JWT fill:#991b1b,stroke:#fca5a5,color:#fff
     style INPUT fill:#92400e,stroke:#fcd34d,color:#fff
-    style SQL fill:#075985,stroke:#7dd3fc,color:#fff
+    style RDS fill:#075985,stroke:#7dd3fc,color:#fff
     style NVD fill:#065f46,stroke:#6ee7b7,color:#fff
 ```
 
@@ -512,7 +514,7 @@ graph LR
 | **CVE ID validation** | Strict regex `^CVE-\d{4}-\d{4,}$` |
 | **CWE ID validation** | Numeric-only `^\d+$` |
 | **Query sanitisation** | 200-char max, allowlist `[\w\s\-.,]` |
-| **SQL injection** | Parameterised queries everywhere in `cache.py` |
+| **Cache safety** | Redis key-value store — no SQL, no injection surface |
 | **XXE prevention** | `defusedxml` for all XML parsing |
 | **XSS prevention** | `escapeHTML()` / `textContent` in all frontend rendering |
 | **Non-root container** | `appuser:appgroup` in Dockerfile |

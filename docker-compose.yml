@@ -1,4 +1,19 @@
 services:
+  # ── Redis (Cache + Concurrent User Tracking) ────────────
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory", "128mb", "--maxmemory-policy", "allkeys-lru"]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+
   # ── FastAPI Application ──────────────────────────────────
   web:
     build: .
@@ -13,11 +28,17 @@ services:
       - AZURE_TENANT_ID=${AZURE_TENANT_ID}
       - AZURE_CLIENT_ID=${AZURE_CLIENT_ID}
       - SERVICE_API_KEY=${SERVICE_API_KEY}
+      - REDIS_URL=redis://redis:6379/0
+      - MAX_CONCURRENT_USERS=${MAX_CONCURRENT_USERS:-3}
+      - USER_SESSION_TTL=${USER_SESSION_TTL:-1800}
       - GRAFANA_URL=http://localhost:3000
       - ARGOCD_URL=http://localhost:8080
       - PROMETHEUS_URL=http://localhost:9090
       - LOCUST_URL=http://localhost:8089
       - ALERTMANAGER_URL=http://localhost:9093
+    depends_on:
+      redis:
+        condition: service_healthy
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "python", "-c", "import httpx; httpx.get('http://localhost:8000/api/health').raise_for_status()"]
@@ -25,6 +46,18 @@ services:
       timeout: 5s
       start_period: 10s
       retries: 3
+
+  # ── Redis Exporter (exposes Redis metrics to Prometheus) ─
+  redis-exporter:
+    image: oliver006/redis_exporter:v1.61.0
+    ports:
+      - "9121:9121"
+    environment:
+      - REDIS_ADDR=redis://redis:6379
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
 
   # ── Prometheus ───────────────────────────────────────────
   prometheus:
@@ -38,6 +71,7 @@ services:
     depends_on:
       - web
       - alertmanager
+      - redis-exporter
     restart: unless-stopped
     command:
       - "--config.file=/etc/prometheus/prometheus.yml"
@@ -108,7 +142,7 @@ services:
       - GF_AUTH_DISABLE_LOGIN_FORM=false
       - GF_SERVER_ROOT_URL=http://localhost:3000
       - GF_SERVER_DOMAIN=localhost
-      - GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH=/var/lib/grafana/dashboards/cwe-explorer.json
+      - GF_DEFAULT_HOME_DASHBOARD_PATH=
     depends_on:
       - prometheus
     restart: unless-stopped
@@ -128,6 +162,7 @@ services:
     restart: unless-stopped
 
 volumes:
+  redis-data:
   prometheus-data:
   grafana-data:
   alertmanager-data:

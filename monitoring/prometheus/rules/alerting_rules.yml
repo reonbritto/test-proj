@@ -125,3 +125,179 @@ groups:
         annotations:
           summary: "Traffic spike detected (10x normal)"
           description: "Current request rate is {{ $value | humanize }} req/s, which is 10x higher than the 1-hour average. Possible DDoS or runaway client."
+
+  # ─────────────────────────────────────────────────────────
+  #  Node Resource Alerts
+  # ─────────────────────────────────────────────────────────
+  - name: infra_node_alerts
+    rules:
+      # 🟡 Node CPU sustained above 80%
+      - alert: NodeHighCPU
+        expr: infra:node_cpu_usage:percent5m > 80
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Node {{ $labels.instance }} CPU above 80%"
+          description: "CPU usage on {{ $labels.instance }} is {{ $value | humanize }}% and has been elevated for over 10 minutes."
+
+      # 🔴 Node CPU sustained above 90%
+      - alert: NodeCriticalCPU
+        expr: infra:node_cpu_usage:percent5m > 90
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Node {{ $labels.instance }} CPU critically high ({{ $value | humanize }}%)"
+          description: "CPU on {{ $labels.instance }} has been above 90% for 5 minutes. Workloads may be throttled."
+
+      # 🟡 Node memory above 85%
+      - alert: NodeHighMemory
+        expr: infra:node_memory_usage:percent > 85
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Node {{ $labels.instance }} memory above 85%"
+          description: "Memory usage on {{ $labels.instance }} is {{ $value | humanize }}%. OOMKill risk is elevated."
+
+      # 🔴 Node memory above 95%
+      - alert: NodeCriticalMemory
+        expr: infra:node_memory_usage:percent > 95
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Node {{ $labels.instance }} memory critically high ({{ $value | humanize }}%)"
+          description: "Memory on {{ $labels.instance }} is nearly exhausted. Pod evictions or OOMKills are imminent."
+
+      # 🟡 Disk usage above 75%
+      - alert: NodeDiskSpaceWarning
+        expr: infra:node_disk_usage:percent > 75
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Node {{ $labels.instance }} disk above 75%"
+          description: "Root filesystem on {{ $labels.instance }} is {{ $value | humanize }}% full."
+
+      # 🔴 Disk usage above 90%
+      - alert: NodeDiskSpaceCritical
+        expr: infra:node_disk_usage:percent > 90
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Node {{ $labels.instance }} disk critically full ({{ $value | humanize }}%)"
+          description: "Root filesystem on {{ $labels.instance }} is nearly full. Pods may fail to write logs or data."
+
+      # 🔴 node-exporter target is down
+      - alert: NodeExporterDown
+        expr: up{job="node-exporter"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "node-exporter on {{ $labels.instance }} is unreachable"
+          description: "Prometheus cannot scrape node-exporter on {{ $labels.instance }}. Node metrics are unavailable."
+
+  # ─────────────────────────────────────────────────────────
+  #  Kubernetes Pod Alerts
+  # ─────────────────────────────────────────────────────────
+  - name: infra_kubernetes_alerts
+    rules:
+      # 🟡 Any pod is not Running or Succeeded
+      - alert: PodNotRunning
+        expr: >
+          kube_pod_status_phase{namespace="puresecure",phase!="Running",phase!="Succeeded",job="kube-state-metrics"} == 1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Pod {{ $labels.pod }} is {{ $labels.phase }}"
+          description: "Pod {{ $labels.namespace }}/{{ $labels.pod }} has been in {{ $labels.phase }} state for more than 5 minutes."
+
+      # 🔴 Pod in Failed state
+      - alert: PodFailed
+        expr: kube_pod_status_phase{namespace="puresecure",phase="Failed",job="kube-state-metrics"} == 1
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Pod {{ $labels.pod }} has Failed"
+          description: "Pod {{ $labels.namespace }}/{{ $labels.pod }} is in Failed state. Investigate with: kubectl describe pod {{ $labels.pod }} -n {{ $labels.namespace }}"
+
+      # 🟡 Container restarted more than 3 times in 1 hour
+      - alert: ContainerFrequentRestarts
+        expr: infra:container_restarts:rate1h > 3
+        for: 0m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Container {{ $labels.container }} in {{ $labels.pod }} restarting frequently"
+          description: "Container {{ $labels.container }} in pod {{ $labels.pod }} has restarted {{ $value | humanize }} times in the last hour. Check logs: kubectl logs {{ $labels.pod }} -c {{ $labels.container }} -n puresecure"
+
+      # 🔴 kube-state-metrics target is down
+      - alert: KubeStateMetricsDown
+        expr: up{job="kube-state-metrics"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "kube-state-metrics is unreachable"
+          description: "Prometheus cannot scrape kube-state-metrics. Kubernetes object health metrics are unavailable."
+
+  # ─────────────────────────────────────────────────────────
+  #  Redis Alerts
+  # ─────────────────────────────────────────────────────────
+  - name: infra_redis_alerts
+    rules:
+      # 🔴 Redis is down
+      - alert: RedisDown
+        expr: up{job="redis"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Redis is unreachable"
+          description: "Prometheus cannot scrape the Redis exporter. The cache is down — the API will fail to enforce concurrent user limits and CVE caching is disabled."
+
+      # 🟡 Redis memory above 80% of maxmemory
+      - alert: RedisHighMemory
+        expr: infra:redis_memory_usage:ratio > 0.80
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Redis memory above 80% of maxmemory"
+          description: "Redis is using {{ $value | humanizePercentage }} of its 128 MiB limit. LRU eviction will begin soon."
+
+      # 🔴 Redis memory above 95% — active eviction happening
+      - alert: RedisCriticalMemory
+        expr: infra:redis_memory_usage:ratio > 0.95
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Redis memory critically high ({{ $value | humanizePercentage }} of max)"
+          description: "Redis is actively evicting cached CVE data due to memory pressure. Increase maxmemory or reduce TTLs."
+
+      # 🟡 Cache hit rate below 80%
+      - alert: RedisLowHitRate
+        expr: infra:redis_hit_rate:5m < 0.80
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Redis cache hit rate below 80%"
+          description: "Cache hit rate is {{ $value | humanizePercentage }} over the last 5 minutes. Many requests are bypassing the cache."
+
+      # 🔴 LRU evictions occurring (any eviction rate > 0)
+      - alert: RedisEvicting
+        expr: infra:redis_evictions:rate5m > 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Redis is evicting keys due to memory pressure"
+          description: "Redis is evicting {{ $value | humanize }} keys/s. Cached CVE data is being lost. Increase the memory limit."

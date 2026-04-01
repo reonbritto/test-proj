@@ -86,3 +86,67 @@ Alertmanager labels
 tier: monitoring
 {{ include "puresecure.labels" . }}
 {{- end }}
+
+{{/*
+Redis selector labels
+*/}}
+{{- define "puresecure.redis.selectorLabels" -}}
+app: redis
+{{- end }}
+
+{{/*
+Redis labels
+*/}}
+{{- define "puresecure.redis.labels" -}}
+{{ include "puresecure.redis.selectorLabels" . }}
+tier: cache
+{{ include "puresecure.labels" . }}
+{{- end }}
+
+{{/*
+Redis Exporter selector labels
+*/}}
+{{- define "puresecure.redisExporter.selectorLabels" -}}
+app: redis-exporter
+{{- end }}
+
+{{/*
+Redis Exporter labels
+*/}}
+{{- define "puresecure.redisExporter.labels" -}}
+{{ include "puresecure.redisExporter.selectorLabels" . }}
+tier: monitoring
+{{ include "puresecure.labels" . }}
+{{- end }}
+
+{{/*
+Node Exporter selector labels
+*/}}
+{{- define "puresecure.nodeExporter.selectorLabels" -}}
+app: node-exporter
+{{- end }}
+
+{{/*
+Node Exporter labels
+*/}}
+{{- define "puresecure.nodeExporter.labels" -}}
+{{ include "puresecure.nodeExporter.selectorLabels" . }}
+tier: monitoring
+{{ include "puresecure.labels" . }}
+{{- end }}
+
+{{/*
+Kube State Metrics selector labels
+*/}}
+{{- define "puresecure.kubeStateMetrics.selectorLabels" -}}
+app: kube-state-metrics
+{{- end }}
+
+{{/*
+Kube State Metrics labels
+*/}}
+{{- define "puresecure.kubeStateMetrics.labels" -}}
+{{ include "puresecure.kubeStateMetrics.selectorLabels" . }}
+tier: monitoring
+{{ include "puresecure.labels" . }}
+{{- end }}

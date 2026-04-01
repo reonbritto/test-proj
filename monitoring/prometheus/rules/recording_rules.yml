@@ -130,3 +130,108 @@ groups:
       # Total requests per endpoint since startup
       - record: cwe:http_requests_by_endpoint:total
         expr: sum by (endpoint) (http_requests_total{job="cwe-explorer"})
+
+  # ─────────────────────────────────────────────────────────
+  #  Node Resource Recording Rules
+  #  Pre-compute node-exporter metrics for fast dashboard rendering
+  # ─────────────────────────────────────────────────────────
+  - name: infra_node
+    interval: 15s
+    rules:
+      # CPU utilisation per node (0-100%)
+      - record: infra:node_cpu_usage:percent5m
+        expr: >
+          100 - (
+            avg by (instance) (
+              rate(node_cpu_seconds_total{mode="idle",job="node-exporter"}[5m])
+            ) * 100
+          )
+
+      # Memory utilisation per node (0-100%)
+      - record: infra:node_memory_usage:percent
+        expr: >
+          100 * (
+            1 - (
+              node_memory_MemAvailable_bytes{job="node-exporter"}
+              / node_memory_MemTotal_bytes{job="node-exporter"}
+            )
+          )
+
+      # Root filesystem usage per node (0-100%)
+      - record: infra:node_disk_usage:percent
+        expr: >
+          100 - (
+            node_filesystem_avail_bytes{job="node-exporter",mountpoint="/",fstype!="tmpfs"}
+            / node_filesystem_size_bytes{job="node-exporter",mountpoint="/",fstype!="tmpfs"}
+            * 100
+          )
+
+      # Network receive bytes/s per node (excluding loopback/virtual interfaces)
+      - record: infra:node_network_rx:rate5m
+        expr: >
+          sum by (instance) (
+            rate(node_network_receive_bytes_total{job="node-exporter",device!~"lo|veth.*|docker.*|flannel.*|cali.*"}[5m])
+          )
+
+      # Network transmit bytes/s per node
+      - record: infra:node_network_tx:rate5m
+        expr: >
+          sum by (instance) (
+            rate(node_network_transmit_bytes_total{job="node-exporter",device!~"lo|veth.*|docker.*|flannel.*|cali.*"}[5m])
+          )
+
+  # ─────────────────────────────────────────────────────────
+  #  Kubernetes State Recording Rules
+  # ─────────────────────────────────────────────────────────
+  - name: infra_kubernetes
+    interval: 15s
+    rules:
+      # Count of running pods in puresecure namespace
+      - record: infra:pods_running:count
+        expr: >
+          count(
+            kube_pod_status_phase{namespace="puresecure",phase="Running",job="kube-state-metrics"}
+          )
+
+      # Count of non-running pods (Pending / Failed / Unknown)
+      - record: infra:pods_not_running:count
+        expr: >
+          count(
+            kube_pod_status_phase{namespace="puresecure",phase!="Running",phase!="Succeeded",job="kube-state-metrics"}
+          ) or vector(0)
+
+      # Container restart rate over 1 hour
+      - record: infra:container_restarts:rate1h
+        expr: >
+          sum by (pod, container) (
+            increase(kube_pod_container_status_restarts_total{namespace="puresecure",job="kube-state-metrics"}[1h])
+          )
+
+  # ─────────────────────────────────────────────────────────
+  #  Redis Recording Rules
+  # ─────────────────────────────────────────────────────────
+  - name: infra_redis
+    interval: 15s
+    rules:
+      # Memory utilisation vs maxmemory (0-1)
+      - record: infra:redis_memory_usage:ratio
+        expr: >
+          redis_memory_used_bytes{job="redis"}
+          / redis_memory_max_bytes{job="redis"}
+
+      # Cache hit rate (0-1)
+      - record: infra:redis_hit_rate:5m
+        expr: >
+          rate(redis_keyspace_hits_total{job="redis"}[5m])
+          / (
+            rate(redis_keyspace_hits_total{job="redis"}[5m])
+            + rate(redis_keyspace_misses_total{job="redis"}[5m])
+          )
+
+      # Operations per second
+      - record: infra:redis_ops:rate1m
+        expr: rate(redis_commands_processed_total{job="redis"}[1m])
+
+      # LRU eviction rate per second (should be 0 in normal operation)
+      - record: infra:redis_evictions:rate5m
+        expr: rate(redis_evicted_keys_total{job="redis"}[5m])

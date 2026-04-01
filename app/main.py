@@ -5,6 +5,7 @@ import time
 from contextlib import asynccontextmanager
 from fastapi import Depends, FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.routing import Route
 from typing import List
@@ -33,16 +34,17 @@ cwe_dict: dict = {}
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Load CWE data and clean expired cache at startup."""
+    """Load CWE data at startup."""
     global cwe_data, cwe_dict
     cwe_data = get_cwe_data()
     cwe_dict = {entry.id: entry for entry in cwe_data}
-    removed = cache.cleanup_expired()
+    cache.cleanup_expired()   # no-op with Redis (TTL handles expiry)
     attack_ok = attack_parser.load_attack_data()
     logger.info(
-        "Startup: loaded %d CWEs, purged %d expired cache entries, "
-        "ATT&CK data %s",
-        len(cwe_data), removed, "loaded" if attack_ok else "unavailable",
+        "Startup: loaded %d CWEs, Redis cache ready, "
+        "max concurrent users: %d, ATT&CK data %s",
+        len(cwe_data), cache.MAX_CONCURRENT_USERS,
+        "loaded" if attack_ok else "unavailable",
     )
     yield
 
@@ -50,7 +52,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="CWE Explorer - PureSecure",
     description="Security weakness database powered by MITRE CWE XML "
-                "with NVD CVE cross-referencing, built for Assimilate.",
+                "with NVD CVE cross-referencing.",
     version="2.0.0",
     lifespan=lifespan,
     routes=[Route("/metrics", metrics_endpoint)],
@@ -89,17 +91,114 @@ async def log_requests(request: Request, call_next):
     return response
 
 
+# -- Concurrent User Enforcement Middleware ----------------------------
+# Tracks active user OIDs in Redis and rejects new users once the
+# MAX_CONCURRENT_USERS cap is reached. Only enforced on auth-required
+# endpoints (those that pass a Bearer token). Service API key calls
+# and public endpoints bypass the check.
+
+_PUBLIC_PATHS = {
+    "/api/health", "/api/config", "/api/services", "/metrics",
+    "/api/session/release",
+}
+
+
+@app.middleware("http")
+async def enforce_concurrent_users(request: Request, call_next):
+    """Block new users if the concurrent-user cap has been reached."""
+    path = request.url.path
+
+    # Skip for public / static paths
+    if (
+        path in _PUBLIC_PATHS
+        or not path.startswith("/api/")
+    ):
+        return await call_next(request)
+
+    # Extract the Bearer token to get the user OID
+    auth_header = request.headers.get("authorization", "")
+    if not auth_header.lower().startswith("bearer "):
+        return await call_next(request)
+
+    token = auth_header[7:]
+
+    # Service API key? Skip user-limit enforcement
+    from .auth import SERVICE_API_KEY
+    import secrets as _secrets
+    if SERVICE_API_KEY and _secrets.compare_digest(token, SERVICE_API_KEY):
+        return await call_next(request)
+
+    # Decode the JWT without full validation (auth middleware handles that)
+    # just to extract the user OID for tracking.
+    try:
+        import base64
+        payload_b64 = token.split(".")[1]
+        # Add padding
+        payload_b64 += "=" * (4 - len(payload_b64) % 4)
+        import json as _json
+        claims = _json.loads(base64.urlsafe_b64decode(payload_b64))
+        user_oid = claims.get("oid") or claims.get("sub") or ""
+    except Exception:
+        # If we can't decode, let the auth middleware reject it
+        return await call_next(request)
+
+    if not user_oid:
+        return await call_next(request)
+
+    # Try to register this user
+    if not cache.register_active_user(user_oid):
+        logger.warning(
+            "Concurrent user limit reached (%d). Rejected OID: %s",
+            cache.MAX_CONCURRENT_USERS, user_oid[:8],
+        )
+        return JSONResponse(
+            status_code=429,
+            content={
+                "detail": (
+                    f"Maximum concurrent users ({cache.MAX_CONCURRENT_USERS}) "
+                    f"reached. Please try again later."
+                ),
+            },
+        )
+
+    # User admitted — refresh their session timestamp on every request
+    cache.refresh_active_user(user_oid)
+    return await call_next(request)
+
+
+# -- Session Release Endpoint -----------------------------------------
+
+
+@app.post("/api/session/release")
+async def api_release_session(request: Request):
+    """Explicitly release a user session (called on logout / tab close).
+
+    Accepts a JSON body: {"oid": "user-object-id"}
+    """
+    try:
+        body = await request.json()
+        oid = body.get("oid", "")
+        if oid:
+            cache.remove_active_user(oid)
+            return {"status": "released"}
+    except Exception:
+        pass
+    return {"status": "no-op"}
+
+
 # -- Public Endpoints (no auth) ----------------------------------------
 
 
 @app.get("/api/health")
 def api_health():
-    """Health check with cache stats (public)."""
+    """Health check with cache stats and active user count (public)."""
     stats = cache.get_cache_stats()
     return {
         "status": "healthy",
         "cwe_count": len(cwe_data),
         "cache": stats,
+        "active_users": cache.get_active_user_count(),
+        "max_concurrent_users": cache.MAX_CONCURRENT_USERS,
     }
 
 
@@ -121,6 +220,7 @@ def api_services():
         "locust": os.environ.get("LOCUST_URL", "http://localhost:8089"),
         "argocd": os.environ.get("ARGOCD_URL", "https://argocd.reondev.top"),
         "alertmanager": os.environ.get("ALERTMANAGER_URL", "http://localhost:9093"),
+        "redis": os.environ.get("REDIS_URL", "redis://localhost:6379/0"),
     }
 
 

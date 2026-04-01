@@ -5,3 +5,4 @@ bandit
 flake8
 respx
 cyclonedx-bom
+fakeredis

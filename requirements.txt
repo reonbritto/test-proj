@@ -5,3 +5,4 @@ pydantic>=2.0
 defusedxml
 prometheus-client
 PyJWT[crypto]
+redis>=5.0

@@ -8,7 +8,6 @@ venv
 __pycache__
 *.pyc
 *.pyo
-data/cve_cache.db
 data/*.xml
 data/*.xml.zip
 coverage-html/
@@ -30,4 +29,12 @@ monitoring/
 locust/
 jmeter/
 docs/
+terraform/
+helm/
+argocd/
+tests/
+todo.md
+DEPLOYMENT.md
 README.md
+docker-compose.yml
+requirements-dev.txt

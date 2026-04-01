@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Search CWEs - PureSecure</title>
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2310b981' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z'/%3E%3C/svg%3E">
     <link rel="stylesheet" href="/style.css?v=2">
     <script>
         (function() {
@@ -30,11 +31,12 @@
                 <button class="nav-dropdown-btn">Services &#9662;</button>
                 <div class="nav-dropdown-menu">
                     <span class="dropdown-section">Monitoring & GitOps</span>
-                    <a href="https://grafana.reondev.top/d/cwe-explorer-api" data-service="grafana" target="_blank">Grafana</a>
+                    <a href="https://grafana.reondev.top/dashboards" data-service="grafana" target="_blank">Grafana</a>
                     <a href="https://argocd.reondev.top" data-service="argocd" target="_blank">ArgoCD</a>
                     <a href="http://localhost:9090" data-service="prometheus" target="_blank">Prometheus <span class="nav-badge-internal">Internal</span></a>
                     <a href="http://localhost:8089" data-service="locust" target="_blank">Locust <span class="nav-badge-internal">Internal</span></a>
                     <a href="http://localhost:9093" data-service="alertmanager" target="_blank">Alertmanager <span class="nav-badge-internal">Internal</span></a>
+                    <a href="redis://localhost:6379" data-service="redis">Redis <span class="nav-badge-internal">Internal</span></a>
                     <span class="dropdown-section">API Endpoints</span>
                     <a href="/docs" target="_blank">Swagger Docs</a>
                 </div>

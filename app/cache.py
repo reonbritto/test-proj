@@ -1,81 +1,70 @@
-"""SQLite-backed cache for NVD API responses."""
+"""Redis-backed cache for NVD API responses and concurrent user enforcement."""
 import json
 import os
-import sqlite3
 import hashlib
-from datetime import datetime, timedelta, timezone
+import logging
 from typing import Optional
 
-DB_PATH = os.path.join(os.path.dirname(__file__), "..", "data", "cache.db")
-TTL_HOURS = 24
+import redis
+
+logger = logging.getLogger("cwe-explorer")
+
+# ── Redis connection config ──────────────────────────────────────
+REDIS_URL = os.environ.get("REDIS_URL", "redis://localhost:6379/0")
+TTL_SECONDS = int(os.environ.get("CACHE_TTL_SECONDS", 3600))  # 1 hour
+
+# ── Concurrent user limit ───────────────────────────────────────
+MAX_CONCURRENT_USERS = int(os.environ.get("MAX_CONCURRENT_USERS", "3"))
+USER_SESSION_TTL = int(os.environ.get("USER_SESSION_TTL", "1800"))  # 30 min
+
+# Redis key prefixes
+_CVE_PREFIX = "cve:"
+_SEARCH_PREFIX = "search:"
+_ACTIVE_USERS_KEY = "active_users"
+
+# Lazy-initialised connection pool
+_pool: Optional[redis.ConnectionPool] = None
 
 
-def _get_connection() -> sqlite3.Connection:
-    os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
-    conn = sqlite3.connect(DB_PATH)
-    # WAL mode: concurrent reads don't block writes
-    conn.execute("PRAGMA journal_mode=WAL")
-    conn.execute("""
-        CREATE TABLE IF NOT EXISTS cve_cache (
-            cve_id TEXT PRIMARY KEY,
-            response_json TEXT NOT NULL,
-            fetched_at TEXT NOT NULL
+def _get_redis() -> redis.Redis:
+    """Return a Redis client backed by a shared connection pool."""
+    global _pool
+    if _pool is None:
+        _pool = redis.ConnectionPool.from_url(
+            REDIS_URL, decode_responses=True
         )
-    """)
-    conn.execute("""
-        CREATE TABLE IF NOT EXISTS search_cache (
-            query_hash TEXT PRIMARY KEY,
-            response_json TEXT NOT NULL,
-            fetched_at TEXT NOT NULL
-        )
-    """)
-    conn.commit()
-    return conn
+    return redis.Redis(connection_pool=_pool)
 
 
-def _now() -> datetime:
-    """Return current UTC time as a timezone-aware datetime."""
-    return datetime.now(timezone.utc)
-
-
-def _is_expired(fetched_at: str) -> bool:
-    """Check whether a cached entry is older than TTL_HOURS."""
-    fetched = datetime.fromisoformat(fetched_at)
-    # Handle both aware and naive timestamps stored in the DB
-    if fetched.tzinfo is None:
-        fetched = fetched.replace(tzinfo=timezone.utc)
-    return _now() - fetched > timedelta(hours=TTL_HOURS)
+# ── CVE cache ────────────────────────────────────────────────────
 
 
 def get_cached_cve(cve_id: str) -> Optional[dict]:
-    """Retrieve cached CVE data if not expired."""
-    conn = _get_connection()
+    """Retrieve cached CVE data (returns None on miss or error)."""
     try:
-        cursor = conn.execute(
-            "SELECT response_json, fetched_at FROM cve_cache"
-            " WHERE cve_id = ?",
-            (cve_id,)
-        )
-        row = cursor.fetchone()
-        if row and not _is_expired(row[1]):
-            return json.loads(row[0])
-        return None
-    finally:
-        conn.close()
+        r = _get_redis()
+        data = r.get(f"{_CVE_PREFIX}{cve_id}")
+        if data:
+            return json.loads(data)
+    except redis.RedisError as e:
+        logger.warning("Redis get_cached_cve error: %s", e)
+    return None
 
 
 def set_cached_cve(cve_id: str, data: dict) -> None:
-    """Store CVE data in cache."""
-    conn = _get_connection()
+    """Store CVE data in Redis with TTL."""
     try:
-        conn.execute(
-            "INSERT OR REPLACE INTO cve_cache"
-            " (cve_id, response_json, fetched_at) VALUES (?, ?, ?)",
-            (cve_id, json.dumps(data), _now().isoformat())
+        r = _get_redis()
+        r.setex(
+            f"{_CVE_PREFIX}{cve_id}",
+            TTL_SECONDS,
+            json.dumps(data),
         )
-        conn.commit()
-    finally:
-        conn.close()
+    except redis.RedisError as e:
+        logger.warning("Redis set_cached_cve error: %s", e)
+
+
+# ── Search cache ─────────────────────────────────────────────────
 
 
 def _hash_query(query: str) -> str:
@@ -83,81 +72,181 @@ def _hash_query(query: str) -> str:
 
 
 def get_cached_search(query_params: str) -> Optional[dict]:
-    """Retrieve cached search results if not expired."""
-    query_hash = _hash_query(query_params)
-    conn = _get_connection()
+    """Retrieve cached search results (returns None on miss or error)."""
     try:
-        cursor = conn.execute(
-            "SELECT response_json, fetched_at FROM search_cache"
-            " WHERE query_hash = ?",
-            (query_hash,)
-        )
-        row = cursor.fetchone()
-        if row and not _is_expired(row[1]):
-            return json.loads(row[0])
-        return None
-    finally:
-        conn.close()
+        r = _get_redis()
+        data = r.get(f"{_SEARCH_PREFIX}{_hash_query(query_params)}")
+        if data:
+            return json.loads(data)
+    except redis.RedisError as e:
+        logger.warning("Redis get_cached_search error: %s", e)
+    return None
 
 
 def set_cached_search(query_params: str, data: dict) -> None:
-    """Store search results in cache."""
-    query_hash = _hash_query(query_params)
-    conn = _get_connection()
+    """Store search results in Redis with TTL."""
     try:
-        conn.execute(
-            "INSERT OR REPLACE INTO search_cache"
-            " (query_hash, response_json, fetched_at) VALUES (?, ?, ?)",
-            (query_hash, json.dumps(data), _now().isoformat())
+        r = _get_redis()
+        r.setex(
+            f"{_SEARCH_PREFIX}{_hash_query(query_params)}",
+            TTL_SECONDS,
+            json.dumps(data),
         )
-        conn.commit()
-    finally:
-        conn.close()
+    except redis.RedisError as e:
+        logger.warning("Redis set_cached_search error: %s", e)
+
+
+# ── Bulk retrieval (analytics) ───────────────────────────────────
 
 
 def get_all_cached_cves() -> list:
-    """Retrieve all cached CVE data for analytics."""
-    conn = _get_connection()
+    """Retrieve all cached CVE data for analytics.
+
+    Uses SCAN to iterate over cve:* keys without blocking Redis.
+    """
+    results = []
     try:
-        cursor = conn.execute("SELECT response_json FROM cve_cache")
-        return [json.loads(row[0]) for row in cursor.fetchall()]
-    finally:
-        conn.close()
+        r = _get_redis()
+        cursor = 0
+        while True:
+            cursor, keys = r.scan(
+                cursor=cursor, match=f"{_CVE_PREFIX}*", count=200
+            )
+            if keys:
+                values = r.mget(keys)
+                for v in values:
+                    if v:
+                        results.append(json.loads(v))
+            if cursor == 0:
+                break
+    except redis.RedisError as e:
+        logger.warning("Redis get_all_cached_cves error: %s", e)
+    return results
+
+
+# ── Cleanup (no-op — Redis TTL handles expiry automatically) ─────
 
 
 def cleanup_expired() -> int:
-    """Delete cache entries older than TTL. Returns rows removed."""
-    cutoff = (_now() - timedelta(hours=TTL_HOURS)).isoformat()
-    conn = _get_connection()
-    try:
-        c1 = conn.execute(
-            "DELETE FROM cve_cache WHERE fetched_at < ?", (cutoff,)
-        )
-        c2 = conn.execute(
-            "DELETE FROM search_cache WHERE fetched_at < ?", (cutoff,)
-        )
-        conn.execute("PRAGMA optimize")
-        conn.commit()
-        return c1.rowcount + c2.rowcount
-    finally:
-        conn.close()
+    """No-op: Redis expires keys automatically via TTL.
+
+    Retained for API compatibility with startup and health checks.
+    Returns 0 because there is nothing to clean up manually.
+    """
+    return 0
+
+
+# ── Cache stats ──────────────────────────────────────────────────
 
 
 def get_cache_stats() -> dict:
-    """Return cache size metrics."""
-    conn = _get_connection()
+    """Return cache size metrics from Redis."""
     try:
-        cve_count = conn.execute(
-            "SELECT COUNT(*) FROM cve_cache"
-        ).fetchone()[0]
-        search_count = conn.execute(
-            "SELECT COUNT(*) FROM search_cache"
-        ).fetchone()[0]
-        db_size = os.path.getsize(DB_PATH) if os.path.exists(DB_PATH) else 0
+        r = _get_redis()
+        # Count keys by prefix using SCAN (non-blocking)
+        cve_count = 0
+        search_count = 0
+
+        cursor = 0
+        while True:
+            cursor, keys = r.scan(cursor=cursor, match=f"{_CVE_PREFIX}*", count=500)
+            cve_count += len(keys)
+            if cursor == 0:
+                break
+
+        cursor = 0
+        while True:
+            cursor, keys = r.scan(cursor=cursor, match=f"{_SEARCH_PREFIX}*", count=500)
+            search_count += len(keys)
+            if cursor == 0:
+                break
+
+        info = r.info("memory")
         return {
             "cve_entries": cve_count,
             "search_entries": search_count,
-            "db_size_bytes": db_size,
+            "redis_used_memory_bytes": info.get("used_memory", 0),
         }
-    finally:
-        conn.close()
+    except redis.RedisError as e:
+        logger.warning("Redis get_cache_stats error: %s", e)
+        return {
+            "cve_entries": 0,
+            "search_entries": 0,
+            "redis_used_memory_bytes": 0,
+        }
+
+
+# ── Concurrent user enforcement ──────────────────────────────────
+
+
+def register_active_user(user_oid: str) -> bool:
+    """Try to register a user as active.
+
+    Returns True if the user was admitted (already active OR under limit).
+    Returns False if the concurrent-user cap has been reached.
+    """
+    try:
+        r = _get_redis()
+
+        # Already registered? Just refresh the TTL and allow.
+        if r.zscore(_ACTIVE_USERS_KEY, user_oid) is not None:
+            r.zadd(_ACTIVE_USERS_KEY, {user_oid: _now_ts()})
+            return True
+
+        # Evict expired sessions first
+        _evict_expired_users(r)
+
+        # Check capacity
+        active_count = r.zcard(_ACTIVE_USERS_KEY)
+        if active_count >= MAX_CONCURRENT_USERS:
+            return False
+
+        # Register the new user
+        r.zadd(_ACTIVE_USERS_KEY, {user_oid: _now_ts()})
+        return True
+    except redis.RedisError as e:
+        logger.warning("Redis register_active_user error: %s", e)
+        # Fail-open: allow the request if Redis is down
+        return True
+
+
+def refresh_active_user(user_oid: str) -> None:
+    """Refresh the TTL for an already-registered user."""
+    try:
+        r = _get_redis()
+        r.zadd(_ACTIVE_USERS_KEY, {user_oid: _now_ts()})
+    except redis.RedisError as e:
+        logger.warning("Redis refresh error: %s", e)
+
+
+def remove_active_user(user_oid: str) -> None:
+    """Explicitly remove a user (e.g. on logout)."""
+    try:
+        r = _get_redis()
+        r.zrem(_ACTIVE_USERS_KEY, user_oid)
+    except redis.RedisError as e:
+        logger.warning("Redis remove_active_user error: %s", e)
+
+
+def get_active_user_count() -> int:
+    """Return the number of currently active users."""
+    try:
+        r = _get_redis()
+        _evict_expired_users(r)
+        return r.zcard(_ACTIVE_USERS_KEY)
+    except redis.RedisError as e:
+        logger.warning("Redis get_active_user_count error: %s", e)
+        return 0
+
+
+def _now_ts() -> float:
+    """Current time as a Unix timestamp (for sorted-set scores)."""
+    import time
+    return time.time()
+
+
+def _evict_expired_users(r: redis.Redis) -> None:
+    """Remove users whose session timestamp is older than USER_SESSION_TTL."""
+    import time
+    cutoff = time.time() - USER_SESSION_TTL
+    r.zremrangebyscore(_ACTIVE_USERS_KEY, "-inf", cutoff)

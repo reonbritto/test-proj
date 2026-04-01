@@ -196,7 +196,7 @@ async function loadServiceLinks() {
                 // For Grafana, preserve any path suffix already in the href
                 // (e.g. /d/cwe-explorer-api) — only replace the origin/base.
                 if (key === 'grafana') {
-                    var suffix = el.getAttribute('data-service-path') || '/d/cwe-explorer-api';
+                    var suffix = el.getAttribute('data-service-path') || '/dashboards';
                     el.href = urls[key].replace(/\/$/, '') + suffix;
                 } else {
                     el.href = urls[key];

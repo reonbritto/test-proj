@@ -6,7 +6,7 @@ metadata:
   finalizers:
     - resources-finalizer.argocd.argoproj.io
 spec:
-  description: PureSecure CVE Explorer Project
+  description: PureSecure CWE Explorer Project
   sourceRepos:
     - https://github.com/reonbritto/test-proj.git
   destinations:

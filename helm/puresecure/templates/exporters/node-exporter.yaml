@@ -1,0 +1,87 @@
+{{- if .Values.nodeExporter.enabled }}
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: node-exporter
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "puresecure.nodeExporter.labels" . | nindent 4 }}
+spec:
+  selector:
+    matchLabels:
+      {{- include "puresecure.nodeExporter.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "puresecure.nodeExporter.selectorLabels" . | nindent 8 }}
+    spec:
+      hostNetwork: true
+      hostPID: true
+      tolerations:
+        - operator: Exists
+          effect: NoSchedule
+      containers:
+        - name: node-exporter
+          image: {{ .Values.nodeExporter.image }}
+          args:
+            - "--path.procfs=/host/proc"
+            - "--path.sysfs=/host/sys"
+            - "--path.rootfs=/host/root"
+            - "--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)"
+          ports:
+            - name: metrics
+              containerPort: {{ .Values.nodeExporter.port }}
+              hostPort: {{ .Values.nodeExporter.port }}
+              protocol: TCP
+          resources:
+            requests:
+              cpu: {{ .Values.nodeExporter.resources.requests.cpu }}
+              memory: {{ .Values.nodeExporter.resources.requests.memory }}
+            limits:
+              cpu: {{ .Values.nodeExporter.resources.limits.cpu }}
+              memory: {{ .Values.nodeExporter.resources.limits.memory }}
+          securityContext:
+            privileged: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            runAsUser: 65534
+          volumeMounts:
+            - name: proc
+              mountPath: /host/proc
+              readOnly: true
+            - name: sys
+              mountPath: /host/sys
+              readOnly: true
+            - name: root
+              mountPath: /host/root
+              readOnly: true
+              mountPropagation: HostToContainer
+      volumes:
+        - name: proc
+          hostPath:
+            path: /proc
+        - name: sys
+          hostPath:
+            path: /sys
+        - name: root
+          hostPath:
+            path: /
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: node-exporter
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "puresecure.nodeExporter.labels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  clusterIP: None
+  ports:
+    - port: {{ .Values.nodeExporter.port }}
+      targetPort: metrics
+      protocol: TCP
+      name: metrics
+  selector:
+    {{- include "puresecure.nodeExporter.selectorLabels" . | nindent 4 }}
+{{- end }}

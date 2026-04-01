@@ -1,0 +1,64 @@
+{{- if .Values.redisExporter.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis-exporter
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "puresecure.redisExporter.labels" . | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "puresecure.redisExporter.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "puresecure.redisExporter.selectorLabels" . | nindent 8 }}
+    spec:
+      containers:
+        - name: redis-exporter
+          image: {{ .Values.redisExporter.image }}
+          args:
+            - "--redis.addr=redis://redis:{{ .Values.redis.port }}"
+          ports:
+            - name: metrics
+              containerPort: {{ .Values.redisExporter.port }}
+              protocol: TCP
+          resources:
+            requests:
+              cpu: {{ .Values.redisExporter.resources.requests.cpu }}
+              memory: {{ .Values.redisExporter.resources.requests.memory }}
+            limits:
+              cpu: {{ .Values.redisExporter.resources.limits.cpu }}
+              memory: {{ .Values.redisExporter.resources.limits.memory }}
+          readinessProbe:
+            httpGet:
+              path: /metrics
+              port: metrics
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /metrics
+              port: metrics
+            initialDelaySeconds: 10
+            periodSeconds: 30
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis-exporter
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "puresecure.redisExporter.labels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  ports:
+    - port: {{ .Values.redisExporter.port }}
+      targetPort: metrics
+      protocol: TCP
+      name: metrics
+  selector:
+    {{- include "puresecure.redisExporter.selectorLabels" . | nindent 4 }}
+{{- end }}
