@@ -60,3 +60,5 @@ terraform/*.auto.tfvars
 prometheus-data/
 grafana-data/
 alertmanager-data/
+/docs
+/todo.md
