@@ -14,6 +14,12 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
+# Patch OS-level CVEs (ncurses, systemd, glibc, zlib) from the base image
+RUN apt-get update && \
+    apt-get upgrade -y --no-install-recommends && \
+    apt-get autoremove -y && \
+    rm -rf /var/lib/apt/lists/*
+
 # Non-root user for security (cache early)
 RUN addgroup --system appgroup && \
     adduser --system --ingroup appgroup appuser
