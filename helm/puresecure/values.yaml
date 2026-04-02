@@ -194,7 +194,7 @@ locust:
 # ─────────────────────────────────────────────────────────
 alertmanager:
   enabled: true
-  image: prom/alertmanager:v0.27.0
+  image: prom/alertmanager:v0.28.1
   replicas: 1
   port: 9093
   externalUrl: "alertmanager.reondev.top" # used in --web.external-url (optional, for click-through links)
