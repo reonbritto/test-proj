@@ -1099,7 +1099,7 @@ data:
                 "datasource": {"type": "loki", "uid": "loki"},
                 "targets": [
                     {
-                        "expr": "sum(count_over_time({namespace=\"{{ "{{" }}namespace{{ "}}" }}\"} [1m])) by (pod)",
+                        "expr": "sum(count_over_time({namespace=\"$namespace\"} [1m])) by (pod)",
                         "legendFormat": "{{ "{{" }}pod{{ "}}" }}",
                         "refId": "A"
                     }
@@ -1123,7 +1123,7 @@ data:
                 "datasource": {"type": "loki", "uid": "loki"},
                 "targets": [
                     {
-                        "expr": "{namespace=\"{{ "{{" }}namespace{{ "}}" }}\", pod=~\"{{ "{{" }}pod{{ "}}" }}\"}",
+                        "expr": "{namespace=\"$namespace\", pod=~\"$pod\"}",
                         "refId": "A"
                     }
                 ],
@@ -1145,7 +1145,7 @@ data:
                 "datasource": {"type": "loki", "uid": "loki"},
                 "targets": [
                     {
-                        "expr": "{namespace=\"{{ "{{" }}namespace{{ "}}" }}\"} |= \"AUTH user login\"",
+                        "expr": "{namespace=\"$namespace\"} |= \"AUTH user login\"",
                         "refId": "A"
                     }
                 ],
@@ -1164,7 +1164,7 @@ data:
                 "datasource": {"type": "loki", "uid": "loki"},
                 "targets": [
                     {
-                        "expr": "{namespace=\"{{ "{{" }}namespace{{ "}}" }}\"} |~ \"(?i)(error|exception|traceback|critical)\"",
+                        "expr": "{namespace=\"$namespace\"} |~ \"(?i)(error|exception|traceback|critical)\"",
                         "refId": "A"
                     }
                 ],
@@ -1193,7 +1193,7 @@ data:
                     "name": "pod",
                     "type": "query",
                     "datasource": {"type": "loki", "uid": "loki"},
-                    "query": "label_values({namespace=\"{{ "{{" }}namespace{{ "}}" }}\"}, pod)",
+                    "query": "label_values({namespace=\"$namespace\"}, pod)",
                     "current": {"text": "All", "value": "$__all"},
                     "refresh": 2,
                     "includeAll": true,
