@@ -98,11 +98,6 @@ resource "random_password" "service_api_key" {
   special = true
 }
 
-resource "random_password" "grafana_admin_password" {
-  length  = 24
-  special = true
-}
-
 resource "azurerm_key_vault_secret" "azure_tenant_id" {
   name         = "azure-tenant-id"
   value        = data.azurerm_client_config.current.tenant_id
@@ -133,19 +128,7 @@ resource "azurerm_key_vault_secret" "service_api_key" {
 
 resource "azurerm_key_vault_secret" "gf_admin_password" {
   name         = "gf-admin-password"
-  value        = random_password.grafana_admin_password.result
-  key_vault_id = azurerm_key_vault.main.id
-
-  depends_on = [azurerm_role_assignment.kv_deployer]
-
-  lifecycle {
-    ignore_changes = [value, tags]
-  }
-}
-
-resource "azurerm_key_vault_secret" "gf_auth_azuread_client_secret" {
-  name         = "gf-auth-azuread-client-secret"
-  value        = var.azure_ad_client_secret
+  value        = var.grafana_admin_password
   key_vault_id = azurerm_key_vault.main.id
 
   depends_on = [azurerm_role_assignment.kv_deployer]

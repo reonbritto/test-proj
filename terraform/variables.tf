@@ -13,8 +13,8 @@ variable "azure_ad_client_id" {
   sensitive   = true
 }
 
-variable "azure_ad_client_secret" {
-  description = "Azure AD client secret for Grafana OAuth"
+variable "grafana_admin_password" {
+  description = "Grafana admin password"
   type        = string
   sensitive   = true
 }

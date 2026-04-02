@@ -75,8 +75,8 @@ output "service_api_key" {
 }
 
 output "grafana_admin_password" {
-  description = "Generated Grafana admin password"
-  value       = random_password.grafana_admin_password.result
+  description = "Grafana admin password (from Key Vault)"
+  value       = var.grafana_admin_password
   sensitive   = true
 }
 
