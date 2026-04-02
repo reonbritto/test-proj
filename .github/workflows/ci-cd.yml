@@ -297,7 +297,7 @@ jobs:
       - name: Load Docker image
         run: docker load -i /tmp/docker-image.tar
 
-      - name: Trivy image scan (table)
+      - name: Trivy image scan (table — OS + app)
         uses: aquasecurity/trivy-action@master
         with:
           image-ref: ${{ secrets.DOCKERHUB_USERNAME }}/puresecure-cwe-explorer:latest
@@ -306,7 +306,7 @@ jobs:
           severity: CRITICAL,HIGH
           output: trivy-report.txt
 
-      - name: Trivy image scan (SARIF)
+      - name: Trivy image scan (SARIF — app dependencies only)
         uses: aquasecurity/trivy-action@master
         with:
           image-ref: ${{ secrets.DOCKERHUB_USERNAME }}/puresecure-cwe-explorer:latest
@@ -314,6 +314,7 @@ jobs:
           exit-code: '0'
           severity: CRITICAL,HIGH
           output: trivy-results.sarif
+          vuln-type: library
 
       - name: Upload Trivy SARIF to GitHub Security
         if: always()
