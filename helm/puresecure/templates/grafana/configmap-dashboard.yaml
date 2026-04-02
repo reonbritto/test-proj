@@ -1099,8 +1099,8 @@ data:
                 "datasource": {"type": "loki", "uid": "loki"},
                 "targets": [
                     {
-                        "expr": "sum(count_over_time({namespace=\"$namespace\"} [1m])) by (pod)",
-                        "legendFormat": "{{ "{{" }}pod{{ "}}" }}",
+                        "expr": "sum(count_over_time({job=~\".+\"} [1m])) by (job)",
+                        "legendFormat": "{{ "{{" }}job{{ "}}" }}",
                         "refId": "A"
                     }
                 ],
@@ -1123,7 +1123,7 @@ data:
                 "datasource": {"type": "loki", "uid": "loki"},
                 "targets": [
                     {
-                        "expr": "{namespace=\"$namespace\", pod=~\"$pod\"}",
+                        "expr": "{job=~\"${job:regex}\"}",
                         "refId": "A"
                     }
                 ],
@@ -1145,7 +1145,7 @@ data:
                 "datasource": {"type": "loki", "uid": "loki"},
                 "targets": [
                     {
-                        "expr": "{namespace=\"$namespace\"} |= \"AUTH user login\"",
+                        "expr": "{job=~\".+\"} |= \"AUTH user login\"",
                         "refId": "A"
                     }
                 ],
@@ -1164,7 +1164,7 @@ data:
                 "datasource": {"type": "loki", "uid": "loki"},
                 "targets": [
                     {
-                        "expr": "{namespace=\"$namespace\"} |~ \"(?i)(error|exception|traceback|critical)\"",
+                        "expr": "{job=~\".+\"} |~ \"(?i)(error|exception|traceback|critical)\"",
                         "refId": "A"
                     }
                 ],
@@ -1180,20 +1180,10 @@ data:
         "templating": {
             "list": [
                 {
-                    "name": "namespace",
+                    "name": "job",
                     "type": "query",
                     "datasource": {"type": "loki", "uid": "loki"},
-                    "query": "label_values(namespace)",
-                    "current": {"text": "puresecure", "value": "puresecure"},
-                    "refresh": 2,
-                    "includeAll": false,
-                    "sort": 1
-                },
-                {
-                    "name": "pod",
-                    "type": "query",
-                    "datasource": {"type": "loki", "uid": "loki"},
-                    "query": "label_values({namespace=\"$namespace\"}, pod)",
+                    "query": "label_values(job)",
                     "current": {"text": "All", "value": "$__all"},
                     "refresh": 2,
                     "includeAll": true,
