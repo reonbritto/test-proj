@@ -2,7 +2,7 @@
 
 # PureSecure CWE Explorer
 
-**A production-grade security intelligence platform for browsing, searching, and analysing CVE & CWE vulnerability data — with real-time observability, GitOps deployment, and Microsoft Entra ID authentication.**
+**A production-grade security intelligence platform for browsing, searching, and analysing CVE & CWE vulnerability data — with real-time observability, log aggregation, GitOps deployment, and Microsoft Entra ID authentication.**
 
 [![CI/CD](https://img.shields.io/github/actions/workflow/status/reonbritto/test-proj/ci-cd.yml?label=CI%2FCD&logo=github)](https://github.com/reonbritto/test-proj/actions)
 [![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white)](https://python.org)
@@ -10,6 +10,7 @@
 [![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white)](https://docs.docker.com/compose/)
 [![Kubernetes](https://img.shields.io/badge/AKS-Kubernetes-326CE5?logo=kubernetes&logoColor=white)](https://azure.microsoft.com/en-us/products/kubernetes-service)
 [![Grafana](https://img.shields.io/badge/Grafana-10.4-F46800?logo=grafana&logoColor=white)](https://grafana.com)
+[![Loki](https://img.shields.io/badge/Loki-2.9.6-F46800?logo=grafana&logoColor=white)](https://grafana.com/oss/loki/)
 [![License](https://img.shields.io/badge/License-MIT-22c55e)](LICENSE)
 
 [**Live Demo**](https://reondev.top) · [**Grafana Dashboard**](https://grafana.reondev.top/d/cwe-explorer-api) · [**ArgoCD**](https://argocd.reondev.top)
@@ -24,10 +25,11 @@ PureSecure CWE Explorer queries the **NIST National Vulnerability Database (NVD)
 
 - Browse and search **CVEs** (Common Vulnerabilities and Exposures) with CVSS severity scores
 - Explore **CWE** (Common Weakness Enumeration) definitions — 969+ weaknesses from the official MITRE XML dataset
-- Visualise vulnerability trends via a **Grafana** monitoring dashboard
+- Visualise vulnerability trends via **Grafana** dashboards (API metrics, infrastructure, logs)
+- Search and filter application logs in real-time via **Loki** log aggregation
 - Get email alerts when critical error rates or latency thresholds are breached via **Alertmanager**
 
-The entire stack (API, monitoring, alerting, load testing) runs locally with a single `docker compose up`, and deploys to production on AKS via **ArgoCD GitOps**.
+The entire stack (API, monitoring, alerting, log aggregation, load testing) runs locally with a single `docker compose up`, and deploys to production on AKS via **ArgoCD GitOps**.
 
 ---
 
@@ -74,8 +76,10 @@ graph TB
 
         subgraph Observability["📈 Observability Stack"]
             PROM["🔥 Prometheus :9090\nMetrics & Alert Rules"]
-            GRAF["📊 Grafana :3000\n18-panel Dashboard"]
+            GRAF["📊 Grafana :3000\n3 Dashboards"]
             ALERT["🚨 Alertmanager :9093\nEmail via Gmail SMTP"]
+            LOKI["📜 Loki :3100\nLog Aggregation"]
+            PROMTAIL["📋 Promtail\nLog Shipper (DaemonSet)"]
             LOCUST["🦗 Locust :8089\nLoad Testing"]
         end
 
@@ -91,6 +95,8 @@ graph TB
     NVD_C & CWE_P --> CACHE --> REDIS
     METRICS_M -- "/metrics" --> PROM
     PROM --> GRAF & ALERT
+    PROMTAIL -- "pod logs" --> LOKI
+    LOKI --> GRAF
     ALERT -- "📧 email alert" --> USER
     LOCUST -- "🔁 load test" --> MAIN
 
@@ -109,6 +115,8 @@ graph TB
     style PROM fill:#c2410c,stroke:#f97316,color:#fff
     style GRAF fill:#b45309,stroke:#f59e0b,color:#fff
     style ALERT fill:#991b1b,stroke:#ef4444,color:#fff
+    style LOKI fill:#b45309,stroke:#f59e0b,color:#fff
+    style PROMTAIL fill:#92400e,stroke:#d97706,color:#fff
     style LOCUST fill:#1e40af,stroke:#3b82f6,color:#fff
     style REDIS fill:#991b1b,stroke:#ef4444,color:#fff
 ```
@@ -147,6 +155,7 @@ graph LR
         TRAEFIK["🌐 Traefik Ingress\nLet's Encrypt TLS"]
         APP_POD["⚡ App Pods\nFastAPI"]
         PROM_POD["🔥 Prometheus\n+ Grafana"]
+        LOKI_POD["📜 Loki + Promtail\nLog Aggregation"]
 
         subgraph Secrets["🔐 Secret Management"]
             ESO["🔁 External Secrets\nOperator"]
@@ -157,7 +166,7 @@ graph LR
 
     CODE --> CI
     GITOPS -- "📝 commits values.yaml" --> ARGO
-    ARGO --> HELM --> TRAEFIK --> APP_POD & PROM_POD
+    ARGO --> HELM --> TRAEFIK --> APP_POD & PROM_POD & LOKI_POD
     MI --> KV --> ESO --> APP_POD
 
     style CODE fill:#1f2937,stroke:#4b5563,color:#f9fafb
@@ -176,6 +185,7 @@ graph LR
     style TRAEFIK fill:#065f46,stroke:#34d399,color:#fff
     style APP_POD fill:#064e3b,stroke:#10b981,color:#fff
     style PROM_POD fill:#7c2d12,stroke:#fb923c,color:#fff
+    style LOKI_POD fill:#b45309,stroke:#f59e0b,color:#fff
     style ESO fill:#4c1d95,stroke:#a78bfa,color:#fff
     style KV fill:#0c4a6e,stroke:#38bdf8,color:#fff
     style MI fill:#1e1b4b,stroke:#818cf8,color:#fff
@@ -222,8 +232,9 @@ sequenceDiagram
 | **CWE Browsing** | 969+ MITRE definitions — consequences, mitigations, detection methods, taxonomy |
 | **Analytics** | Top CWEs by CVE count, composite risk scoring (frequency × severity) |
 | **Authentication** | Microsoft Entra ID (Azure AD) JWT — supports Work + Personal Microsoft accounts |
-| **Caching** | Redis with 24h TTL, concurrent user tracking (max 3 configurable), LRU eviction |
-| **Monitoring** | Prometheus metrics, 17 recording rules, 11 alerting rules, Grafana dashboard (18 panels) |
+| **Caching** | Redis with 1h TTL, concurrent user tracking (max 3 configurable), LRU eviction |
+| **Monitoring** | Prometheus metrics, 17 recording rules, 11 alerting rules, 3 Grafana dashboards (API, Infrastructure, Logs) |
+| **Log Aggregation** | Loki + Promtail — centralized log collection, search via LogQL in Grafana |
 | **Alerting** | Alertmanager → Gmail SMTP → email for critical/warning severity alerts |
 | **Load Testing** | Locust scenarios covering all endpoints with weighted traffic distribution |
 | **Security** | Input validation, parameterised queries, defusedxml (XXE), non-root container, CORS |
@@ -246,7 +257,8 @@ sequenceDiagram
 | **Auth** | Microsoft Entra ID — PyJWT + JWKS |
 | **Metrics** | prometheus-client (Counter / Histogram / Gauge) |
 | **Monitoring** | Prometheus v2.51.2 + Grafana 10.4.2 |
-| **Alerting** | Alertmanager v0.27.0 + Gmail SMTP |
+| **Alerting** | Alertmanager v0.28.1 + Gmail SMTP |
+| **Log Aggregation** | Loki 2.9.6 + Promtail 2.9.6 |
 | **Load Testing** | Locust 2.24.1 |
 | **Frontend** | Vanilla JS, HTML5, CSS3, MSAL.js |
 | **Security** | defusedxml, bandit, Gitleaks, Snyk, CodeQL, Trivy |
@@ -282,11 +294,7 @@ AZURE_TENANT_ID=your-tenant-id
 AZURE_CLIENT_ID=your-client-id
 
 GF_ADMIN_USER=admin
-GF_ADMIN_PASSWORD=changeme
-
-# Grafana Azure AD OAuth (for Grafana login)
-GF_AUTH_AZUREAD_CLIENT_SECRET=your-client-secret
-GF_AUTH_AZUREAD_ENABLED=true
+GF_ADMIN_PASSWORD=your-grafana-password
 
 # Alertmanager email relay (Gmail App Password)
 ALERTMANAGER_SMTP_USERNAME=you@gmail.com
@@ -307,9 +315,10 @@ All services start automatically. The first run downloads the MITRE CWE XML data
 |---------|-----|-------|
 | **CWE Explorer** | http://localhost:8000 | Sign in with Microsoft |
 | **Swagger / OpenAPI** | http://localhost:8000/docs | Interactive API docs |
-| **Grafana** | http://localhost:3000 | Sign in with Microsoft or admin/admin |
+| **Grafana** | http://localhost:3000 | admin / (GF_ADMIN_PASSWORD from .env) |
 | **Prometheus** | http://localhost:9090 | No auth |
 | **Alertmanager** | http://localhost:9093 | No auth |
+| **Loki** | http://localhost:3100 | No auth (query via Grafana Explore) |
 | **Locust** | http://localhost:8089 | No auth |
 
 ---
@@ -324,7 +333,7 @@ cve-new-bri/
 │   ├── metrics.py                # Prometheus middleware (counter/histogram/gauge)
 │   ├── nvd_client.py             # NVD API 2.0 client (async, rate-limited)
 │   ├── cwe_parser.py             # MITRE CWE XML parser (969+ weaknesses)
-│   ├── cache.py                  # Redis cache (24h TTL, concurrent user enforcement)
+│   ├── cache.py                  # Redis cache (1h TTL, concurrent user enforcement)
 │   ├── analytics.py              # Risk scoring, top-CWE aggregation
 │   ├── security.py               # Input validation (CVE/CWE regex, sanitization)
 │   ├── models.py                 # Pydantic models (CVEDetail, CWEEntry, etc.)
@@ -347,10 +356,16 @@ cve-new-bri/
 │   │   ├── alertmanager.yml      # Routing tree, Gmail SMTP, inhibition rules
 │   │   └── templates/
 │   │       └── puresecure.tmpl   # HTML email template with severity colours
+│   ├── loki/
+│   │   └── loki.yaml            # Loki config (monolithic mode, filesystem storage)
+│   ├── promtail/
+│   │   └── promtail.yaml        # Promtail config (Docker log scraping)
 │   └── grafana/
-│       ├── provisioning/         # Auto-provisioned datasource + dashboard
+│       ├── provisioning/         # Auto-provisioned datasources (Prometheus + Loki) + dashboard
 │       └── dashboards/
-│           └── cwe-explorer.json # 18-panel API monitoring dashboard
+│           ├── cwe-explorer.json # 18-panel API monitoring dashboard
+│           ├── infrastructure.json # Node/K8s/Redis infrastructure dashboard
+│           └── logs.json         # Loki log explorer dashboard
 │
 ├── helm/puresecure/              # Production Helm chart
 │   ├── Chart.yaml
@@ -360,6 +375,8 @@ cve-new-bri/
 │       ├── prometheus/
 │       ├── grafana/
 │       ├── alertmanager/
+│       ├── loki/                 # Loki Deployment, Service, ConfigMap, PVC
+│       ├── promtail/             # Promtail DaemonSet, ConfigMap, RBAC
 │       └── secrets/              # ExternalSecret → Azure Key Vault
 │
 ├── argocd/
@@ -472,9 +489,11 @@ Path normalisation prevents label cardinality explosion — `/api/cwe/79` → `/
 
 Critical alerts are inhibited when `APIDown` fires (no spam). Email delivered via Gmail SMTP to your configured address.
 
-### Grafana Dashboard
+### Grafana Dashboards
 
-The pre-provisioned **CWE Explorer — API Monitoring** dashboard has 18 panels across 5 sections:
+Three pre-provisioned dashboards:
+
+**1. CWE Explorer — API Monitoring** (18 panels):
 
 | Section | Panels |
 |---------|--------|
@@ -483,6 +502,47 @@ The pre-provisioned **CWE Explorer — API Monitoring** dashboard has 18 panels 
 | ⏱️ **Latency** | p50 / p95 / p99 time series, per-endpoint p95, heatmap |
 | 🔴 **Errors & Connections** | 5xx error rate, in-progress requests gauge |
 | 📋 **Request Log** | Full table — method, endpoint, status, count, rate, avg response time |
+
+**2. Infrastructure Monitoring** — Node CPU/memory/disk, K8s pod health, Redis cache, Prometheus self-monitoring.
+
+**3. Logs (Loki)** — Log volume per pod, application logs, auth/login logs, error log filtering. Query logs via Grafana **Explore** using LogQL.
+
+### Log Aggregation (Loki + Promtail)
+
+Centralized log collection for all pods in the cluster:
+
+| Component | Role | Deployment |
+|-----------|------|------------|
+| **Loki** | Log storage & query engine (LogQL) | Deployment (1 replica, 5Gi PVC) |
+| **Promtail** | Log shipper — tails pod logs from each node | DaemonSet (1 per node) |
+
+Promtail auto-discovers all pod logs via Kubernetes service discovery and ships them to Loki. Logs are queryable in Grafana via the **Explore** tab or the pre-built **Logs** dashboard.
+
+**LogQL examples:**
+
+```logql
+# All logs from the app namespace
+{namespace="puresecure"}
+
+# User login events
+{namespace="puresecure"} |= "AUTH user login"
+
+# Errors across all pods
+{namespace="puresecure"} |~ "(?i)(error|exception|traceback)"
+
+# Logs from a specific pod
+{namespace="puresecure", pod=~"cwe-explorer.*"}
+```
+
+**Local (docker-compose):**
+
+```logql
+# All container logs
+{job=~".+"}
+
+# Filter by keyword
+{job=~".+"} |= "AUTH user login"
+```
 
 ---
 
@@ -578,6 +638,7 @@ The app runs on **Azure Kubernetes Service** behind **Traefik** with automatic T
 | Grafana | https://grafana.reondev.top |
 | ArgoCD | https://argocd.reondev.top |
 | Prometheus | `kubectl port-forward svc/prometheus 9090` |
+| Loki | `kubectl port-forward svc/loki 3100` (or via Grafana Explore) |
 | Locust | `kubectl port-forward svc/locust 8089` |
 
 ### Infrastructure (Terraform)
@@ -591,7 +652,7 @@ terraform plan
 terraform apply
 ```
 
-Provisions: AKS cluster, Azure Key Vault, Managed Identities (ESO + ExternalDNS), federated credentials, DNS zone.
+Provisions: AKS cluster, Azure Key Vault, Managed Identities (ESO + ExternalDNS), federated credentials, secrets (including Grafana admin password).
 
 ### GitOps Flow
 
@@ -639,7 +700,7 @@ gitleaks detect --source .  # secrets scan
 
 | Source | Data | Update Frequency |
 |--------|------|-----------------|
-| [NIST NVD API 2.0](https://nvd.nist.gov/developers/vulnerabilities) | CVE details, CVSS scores, affected products | Cached 24h per CVE |
+| [NIST NVD API 2.0](https://nvd.nist.gov/developers/vulnerabilities) | CVE details, CVSS scores, affected products | Cached 1h per CVE |
 | [MITRE CWE XML](https://cwe.mitre.org/data/downloads.html) | 969+ weakness definitions | Downloaded at startup |
 
 ---
@@ -651,6 +712,7 @@ gitleaks detect --source .  # secrets scan
 - **[FastAPI](https://fastapi.tiangolo.com/)** — Modern Python web framework
 - **[Prometheus](https://prometheus.io/)** + **[Grafana](https://grafana.com/)** — Observability stack
 - **[Alertmanager](https://prometheus.io/docs/alerting/latest/alertmanager/)** — Alert routing and delivery
+- **[Loki](https://grafana.com/oss/loki/)** + **[Promtail](https://grafana.com/docs/loki/latest/send-data/promtail/)** — Log aggregation stack
 - **[Locust](https://locust.io/)** — Load testing framework
 - **[ArgoCD](https://argoproj.github.io/cd/)** — GitOps continuous delivery
 - **[Microsoft Entra ID](https://learn.microsoft.com/en-us/entra/)** — Identity platform

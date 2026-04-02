@@ -12,19 +12,10 @@ data:
   GF_SERVER_DOMAIN: {{ .Values.grafana.auth.serverDomain | quote }}
   # -- Users
   GF_USERS_ALLOW_SIGN_UP: {{ .Values.grafana.auth.usersAllowSignUp | quote }}
-  GF_USERS_AUTO_ASSIGN_ORG: {{ .Values.grafana.auth.usersAutoAssignOrg | quote }}
-  GF_USERS_AUTO_ASSIGN_ORG_ROLE: {{ .Values.grafana.auth.usersAutoAssignOrgRole | quote }}
-  # -- Azure AD OAuth
-  GF_AUTH_AZUREAD_ENABLED: {{ .Values.grafana.auth.azuread.enabled | quote }}
-  GF_AUTH_AZUREAD_NAME: {{ .Values.grafana.auth.azuread.name | quote }}
-  GF_AUTH_AZUREAD_ALLOW_SIGN_UP: {{ .Values.grafana.auth.azuread.allowSignUp | quote }}
-  GF_AUTH_AZUREAD_AUTO_LOGIN: {{ .Values.grafana.auth.azuread.autoLogin | quote }}
-  GF_AUTH_AZUREAD_SCOPES: {{ .Values.grafana.auth.azuread.scopes | quote }}
-  # GF_AUTH_AZUREAD_CLIENT_ID is injected from app-secrets (Key Vault)
-  GF_AUTH_AZUREAD_AUTH_URL: {{ .Values.grafana.auth.azuread.authUrl | quote }}
-  GF_AUTH_AZUREAD_TOKEN_URL: {{ .Values.grafana.auth.azuread.tokenUrl | quote }}
   # -- Login form
   GF_AUTH_DISABLE_LOGIN_FORM: {{ .Values.grafana.auth.disableLoginForm | quote }}
-  # -- Home dashboard: open the dashboards list on login so both dashboards are visible
+  # -- Disable Azure AD OAuth
+  GF_AUTH_AZUREAD_ENABLED: "false"
+  # -- Home dashboard
   GF_DEFAULT_HOME_DASHBOARD_PATH: ""
 {{- end }}

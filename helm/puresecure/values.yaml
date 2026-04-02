@@ -158,19 +158,8 @@ grafana:
   securityContext:
     fsGroup: 472
   auth:
-    azuread:
-      enabled: "true"
-      name: "Microsoft"
-      allowSignUp: "true"
-      autoLogin: "false"
-      scopes: "openid profile email User.Read"
-      # clientId is pulled from Azure Key Vault via ExternalSecrets (AZURE_CLIENT_ID)
-      authUrl: "https://login.microsoftonline.com/common/oauth2/v2.0/authorize"
-      tokenUrl: "https://login.microsoftonline.com/common/oauth2/v2.0/token"
     disableLoginForm: "false"
     usersAllowSignUp: "false"
-    usersAutoAssignOrg: "true"
-    usersAutoAssignOrgRole: "Viewer"
     serverRootUrl: "https://grafana.reondev.top"
     serverDomain: "grafana.reondev.top"
 # ─────────────────────────────────────────────────────────
@@ -213,6 +202,39 @@ alertmanager:
     from: "PureSecure Alerts <reonbritto@gmail.com>"
     requireTLS: true
     alertRecipient: "reon@duck.com"
+# ─────────────────────────────────────────────────────────
+#  Loki (Log Aggregation)
+# ─────────────────────────────────────────────────────────
+loki:
+  enabled: true
+  image: grafana/loki:2.9.6
+  replicas: 1
+  port: 3100
+  retention: 168h
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  storage:
+    size: 5Gi
+    storageClass: managed-csi
+# ─────────────────────────────────────────────────────────
+#  Promtail (Log Shipper — DaemonSet)
+# ─────────────────────────────────────────────────────────
+promtail:
+  enabled: true
+  image: grafana/promtail:2.9.6
+  port: 9080
+  resources:
+    requests:
+      cpu: 20m
+      memory: 32Mi
+    limits:
+      cpu: 100m
+      memory: 128Mi
 # ─────────────────────────────────────────────────────────
 #  Traefik IngressRoute
 # ─────────────────────────────────────────────────────────
@@ -257,8 +279,6 @@ externalSecrets:
       remoteRef: azure-client-id
     - kubeSecretKey: GF_ADMIN_PASSWORD
       remoteRef: gf-admin-password
-    - kubeSecretKey: GF_AUTH_AZUREAD_CLIENT_SECRET
-      remoteRef: gf-auth-azuread-client-secret
   # Secrets written into the "alertmanager-smtp-secret" Kubernetes Secret
   alertmanagerSecrets:
     - kubeSecretKey: ALERTMANAGER_SMTP_USERNAME

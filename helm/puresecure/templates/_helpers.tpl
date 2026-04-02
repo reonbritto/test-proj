@@ -150,3 +150,35 @@ Kube State Metrics labels
 tier: monitoring
 {{ include "puresecure.labels" . }}
 {{- end }}
+
+{{/*
+Loki selector labels
+*/}}
+{{- define "puresecure.loki.selectorLabels" -}}
+app: loki
+{{- end }}
+
+{{/*
+Loki labels
+*/}}
+{{- define "puresecure.loki.labels" -}}
+{{ include "puresecure.loki.selectorLabels" . }}
+tier: monitoring
+{{ include "puresecure.labels" . }}
+{{- end }}
+
+{{/*
+Promtail selector labels
+*/}}
+{{- define "puresecure.promtail.selectorLabels" -}}
+app: promtail
+{{- end }}
+
+{{/*
+Promtail labels
+*/}}
+{{- define "puresecure.promtail.labels" -}}
+{{ include "puresecure.promtail.selectorLabels" . }}
+tier: monitoring
+{{ include "puresecure.labels" . }}
+{{- end }}

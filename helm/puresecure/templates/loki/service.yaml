@@ -1,0 +1,18 @@
+{{- if .Values.loki.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: loki
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "puresecure.loki.labels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  ports:
+    - port: {{ .Values.loki.port }}
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    {{- include "puresecure.loki.selectorLabels" . | nindent 4 }}
+{{- end }}

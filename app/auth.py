@@ -6,6 +6,7 @@ Supports two authentication methods:
 
 Set SERVICE_API_KEY env var to enable the API key bypass.
 """
+import logging
 import os
 import secrets
 from datetime import datetime, timedelta, timezone
@@ -13,6 +14,8 @@ from typing import Optional
 from fastapi import HTTPException, Security
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from jwt import PyJWKClient, decode as jwt_decode, PyJWTError
+
+logger = logging.getLogger("cwe-explorer")
 
 CLIENT_ID = os.environ.get("AZURE_CLIENT_ID", "")
 JWKS_URL = "https://login.microsoftonline.com/common/discovery/v2.0/keys"
@@ -60,6 +63,7 @@ async def get_current_user(
 
     # ── Check service API key first (fast path) ──────────────
     if SERVICE_API_KEY and secrets.compare_digest(token, SERVICE_API_KEY):
+        logger.info("AUTH service-api-key login: Internal Service")
         return {
             "sub": "service-account",
             "name": "Internal Service",
@@ -78,8 +82,18 @@ async def get_current_user(
             options={"verify_iss": False, "verify_exp": True},
             issuer=None,  # Entra ID uses multiple issuers; audience check is sufficient
         )
+        # Log successful user authentication
+        user_name = payload.get("name", "Unknown")
+        user_email = payload.get("preferred_username",
+                                 payload.get("email", "N/A"))
+        user_oid = payload.get("oid", payload.get("sub", "N/A"))
+        logger.info(
+            "AUTH user login: %s (%s) [oid=%s]",
+            user_name, user_email, user_oid,
+        )
         return payload
     except PyJWTError as exc:
+        logger.warning("AUTH failed: %s", exc)
         raise HTTPException(
             status_code=401,
             detail=f"Invalid or expired token: {exc}",

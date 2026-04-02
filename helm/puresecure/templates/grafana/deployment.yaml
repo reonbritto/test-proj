@@ -45,16 +45,6 @@ spec:
                 secretKeyRef:
                   name: app-secrets
                   key: GF_ADMIN_PASSWORD
-            - name: GF_AUTH_AZUREAD_CLIENT_ID
-              valueFrom:
-                secretKeyRef:
-                  name: app-secrets
-                  key: AZURE_CLIENT_ID
-            - name: GF_AUTH_AZUREAD_CLIENT_SECRET
-              valueFrom:
-                secretKeyRef:
-                  name: app-secrets
-                  key: GF_AUTH_AZUREAD_CLIENT_SECRET
             - name: GF_PATHS_PLUGINS
               value: "/var/lib/grafana/plugins"
           volumeMounts:
@@ -72,6 +62,11 @@ spec:
             - name: dashboard-json
               mountPath: /var/lib/grafana/dashboards/infrastructure.json
               subPath: infrastructure.json
+            {{- if .Values.loki.enabled }}
+            - name: dashboard-json
+              mountPath: /var/lib/grafana/dashboards/logs.json
+              subPath: logs.json
+            {{- end }}
           livenessProbe:
             httpGet:
               path: /api/health
