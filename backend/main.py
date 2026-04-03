@@ -613,13 +613,19 @@ app.mount(
 
 
 # SPA fallback: any non-API, non-asset route serves index.html
+_static_root = os.path.realpath(static_dir)
+
+
 @app.get("/{full_path:path}")
 async def spa_fallback(full_path: str):
     """Serve index.html for all client-side routes (React Router)."""
-    # If the requested path matches a real file, serve it
-    file_path = os.path.join(static_dir, full_path)
-    if full_path and os.path.isfile(file_path):
-        return FileResponse(file_path)
+    # If the requested path matches a real file, serve it —
+    # but only if the resolved path stays inside static_dir
+    # (prevents path traversal attacks like ../../etc/passwd)
+    if full_path:
+        safe_path = os.path.realpath(os.path.join(static_dir, full_path))
+        if safe_path.startswith(_static_root + os.sep) and os.path.isfile(safe_path):
+            return FileResponse(safe_path)
     # Otherwise serve the SPA entry point
     index_path = os.path.join(static_dir, "index.html")
     if os.path.isfile(index_path):
