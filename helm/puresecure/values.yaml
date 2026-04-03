@@ -12,7 +12,7 @@ app:
   name: cwe-explorer
   image:
     repository: reonbritto/puresecure-cwe-explorer
-    tag: "49f2056" # CI will auto-update this with the git SHA
+    tag: "1f47e6c" # CI will auto-update this with the git SHA
     pullPolicy: Always
   replicas: 1
   port: 8000
@@ -47,7 +47,7 @@ app:
     PYTHONUNBUFFERED: "1"
     CORS_ORIGINS: "https://reondev.top"
     REDIS_URL: "redis://redis:6379/0"
-    MAX_CONCURRENT_USERS: "3"   # Max number of concurrent users allowed (enforced via Redis)
+    MAX_CONCURRENT_USERS: "3" # Max number of concurrent users allowed (enforced via Redis)
     USER_SESSION_TTL: "1800"
     GRAFANA_URL: "https://grafana.reondev.top"
     ARGOCD_URL: "https://argocd.reondev.top"
