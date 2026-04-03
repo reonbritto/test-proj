@@ -5,7 +5,7 @@ import time
 from contextlib import asynccontextmanager
 from fastapi import Depends, FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.routing import Route
 from typing import List
@@ -56,11 +56,14 @@ app = FastAPI(
     version="2.0.0",
     lifespan=lifespan,
     routes=[Route("/metrics", metrics_endpoint)],
+    docs_url="/docs",
+    redoc_url="/redoc",
+    openapi_url="/openapi.json",
 )
 
 # CORS — allow browser-based MSAL.js auth flow
 _cors_raw = os.environ.get(
-    "CORS_ORIGINS", "http://localhost:8000,http://127.0.0.1:8000"
+    "CORS_ORIGINS", "http://localhost:8000,http://127.0.0.1:8000,http://localhost:3000"
 )
 _cors_origins = [o.strip() for o in _cors_raw.split(",") if o.strip()]
 
@@ -99,7 +102,7 @@ async def log_requests(request: Request, call_next):
 
 _PUBLIC_PATHS = {
     "/api/health", "/api/config", "/api/services", "/metrics",
-    "/api/session/release",
+    "/api/session/release", "/docs", "/redoc", "/openapi.json",
 }
 
 
@@ -327,7 +330,7 @@ def api_cwe_suggestions(
             suggestions.append({
                 "type": "cwe",
                 "text": f"CWE-{cwe.id}: {cwe.name}",
-                "action": f"/cwe.html?id={cwe.id}"
+                "action": f"/cwe/{cwe.id}"
             })
         if not matched:
             suggestions.append({
@@ -347,7 +350,7 @@ def api_cwe_suggestions(
         suggestions.append({
             "type": "cwe",
             "text": f"CWE-{cwe.id}: {cwe.name}",
-            "action": f"/cwe.html?id={cwe.id}"
+            "action": f"/cwe/{cwe.id}"
         })
 
     # Suggest keyword searches for common weakness categories
@@ -366,7 +369,7 @@ def api_cwe_suggestions(
         suggestions.append({
             "type": "keyword",
             "text": topic.title(),
-            "action": f"/search.html?keyword={topic}"
+            "action": f"/search?keyword={topic}"
         })
 
     return suggestions[:8]
@@ -480,8 +483,15 @@ def api_attack_techniques(
 def api_attack_cwe_map(
     _user: dict = Depends(get_current_user),
 ):
-    """Return technique_id → list of mapped CWE IDs for matrix highlighting."""
+    """Return technique_id → list of mapped CWE IDs for matrix highlighting.
+
+    Merges two mapping directions:
+    1. Forward: CWE XML related_attack_patterns → CAPEC → ATT&CK
+    2. Reverse: CAPEC STIX CWE refs → CAPEC → ATT&CK
+    """
     tech_to_cwes: dict = {}
+
+    # Direction 1: CWE XML → CAPEC → ATT&CK (original)
     for cwe in cwe_data:
         if not cwe.related_attack_patterns:
             continue
@@ -493,6 +503,19 @@ def api_attack_cwe_map(
                 "id": cwe.id,
                 "name": cwe.name,
             })
+
+    # Direction 2: CAPEC STIX → CWE refs (reverse mapping)
+    reverse_map = attack_parser.get_reverse_cwe_map()
+    for tech_id, cwe_ids in reverse_map.items():
+        existing = tech_to_cwes.setdefault(tech_id, [])
+        existing_ids = {c["id"] for c in existing}
+        for cwe_id in cwe_ids:
+            if cwe_id not in existing_ids:
+                cwe_entry = cwe_dict.get(cwe_id)
+                name = cwe_entry.name if cwe_entry else f"CWE-{cwe_id}"
+                existing.append({"id": cwe_id, "name": name})
+                existing_ids.add(cwe_id)
+
     return tech_to_cwes
 
 
@@ -513,17 +536,29 @@ def api_attack_technique_detail(
         if t.parent_id == technique_id
     ]
 
-    # Find CWEs that map to this technique via CAPEC
+    # Find CWEs that map to this technique via CAPEC (forward direction)
     mapped_cwes = []
+    seen_cwe_ids = set()
     for cwe in cwe_data:
         for capec_id in cwe.related_attack_patterns:
             capec_techs = attack_parser.get_techniques_for_capec(capec_id)
             if any(t.id == technique_id for t in capec_techs):
-                mapped_cwes.append({
-                    "id": cwe.id,
-                    "name": cwe.name,
-                })
+                if cwe.id not in seen_cwe_ids:
+                    mapped_cwes.append({
+                        "id": cwe.id,
+                        "name": cwe.name,
+                    })
+                    seen_cwe_ids.add(cwe.id)
                 break
+
+    # Add CWEs from reverse CAPEC→CWE mapping
+    reverse_map = attack_parser.get_reverse_cwe_map()
+    for cwe_id in reverse_map.get(technique_id, []):
+        if cwe_id not in seen_cwe_ids:
+            cwe_entry = cwe_dict.get(cwe_id)
+            name = cwe_entry.name if cwe_entry else f"CWE-{cwe_id}"
+            mapped_cwes.append({"id": cwe_id, "name": name})
+            seen_cwe_ids.add(cwe_id)
 
     return {
         "technique": tech,
@@ -560,12 +595,33 @@ def api_cwe_risk_scores(
     return analytics.cwe_risk_scores(all_cves, cwe_dict, limit=limit)
 
 
-# -- Static Files (must be last) ------------------------------------
+# -- Static Files + SPA Fallback (must be last) --------------------
 
 static_dir = os.path.join(os.path.dirname(__file__), "static")
 if not os.path.exists(static_dir):
     os.makedirs(static_dir)
 
+# Serve static assets (JS, CSS, images) from /assets
+assets_dir = os.path.join(static_dir, "assets")
+if not os.path.exists(assets_dir):
+    os.makedirs(assets_dir)
+
 app.mount(
-    "/", StaticFiles(directory=static_dir, html=True), name="static"
+    "/assets", StaticFiles(directory=assets_dir),
+    name="static-assets",
 )
+
+
+# SPA fallback: any non-API, non-asset route serves index.html
+@app.get("/{full_path:path}")
+async def spa_fallback(full_path: str):
+    """Serve index.html for all client-side routes (React Router)."""
+    # If the requested path matches a real file, serve it
+    file_path = os.path.join(static_dir, full_path)
+    if full_path and os.path.isfile(file_path):
+        return FileResponse(file_path)
+    # Otherwise serve the SPA entry point
+    index_path = os.path.join(static_dir, "index.html")
+    if os.path.isfile(index_path):
+        return FileResponse(index_path)
+    raise HTTPException(status_code=404, detail="Not Found")

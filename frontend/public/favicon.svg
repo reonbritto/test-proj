@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
+  <defs>
+    <linearGradient id="shieldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#10b981"/>
+      <stop offset="100%" stop-color="#059669"/>
+    </linearGradient>
+    <linearGradient id="lockGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="100%" stop-color="#d1fae5"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Shield body -->
+  <path d="M16 1 L28 5.5 L28 14 C28 21.5 22.5 27.5 16 30 C9.5 27.5 4 21.5 4 14 L4 5.5 Z"
+        fill="url(#shieldGrad)" stroke="#047857" stroke-width="0.8"/>
+
+  <!-- Inner shield bevel -->
+  <path d="M16 3.5 L25.5 7 L25.5 14 C25.5 20 21 25.5 16 27.8 C11 25.5 6.5 20 6.5 14 L6.5 7 Z"
+        fill="none" stroke="#34d399" stroke-width="0.5" opacity="0.6"/>
+
+  <!-- Circuit traces - left side -->
+  <line x1="8" y1="10" x2="12" y2="10" stroke="#6ee7b7" stroke-width="0.6" opacity="0.5"/>
+  <circle cx="12" cy="10" r="0.7" fill="#6ee7b7" opacity="0.5"/>
+  <line x1="8" y1="13" x2="11" y2="13" stroke="#6ee7b7" stroke-width="0.6" opacity="0.5"/>
+  <circle cx="11" cy="13" r="0.7" fill="#6ee7b7" opacity="0.5"/>
+
+  <!-- Circuit traces - right side -->
+  <line x1="24" y1="10" x2="20" y2="10" stroke="#6ee7b7" stroke-width="0.6" opacity="0.5"/>
+  <circle cx="20" cy="10" r="0.7" fill="#6ee7b7" opacity="0.5"/>
+  <line x1="24" y1="13" x2="21" y2="13" stroke="#6ee7b7" stroke-width="0.6" opacity="0.5"/>
+  <circle cx="21" cy="13" r="0.7" fill="#6ee7b7" opacity="0.5"/>
+
+  <!-- Lock shackle -->
+  <path d="M12.5 15 L12.5 12.5 C12.5 10.5 14 9 16 9 C18 9 19.5 10.5 19.5 12.5 L19.5 15"
+        fill="none" stroke="#ffffff" stroke-width="1.5" stroke-linecap="round"/>
+
+  <!-- Lock body -->
+  <rect x="11" y="15" width="10" height="8" rx="1.5" ry="1.5"
+        fill="url(#lockGrad)" stroke="#ffffff" stroke-width="0.5"/>
+
+  <!-- Keyhole -->
+  <circle cx="16" cy="18" r="1.5" fill="#10b981"/>
+  <rect x="15.4" y="18.5" width="1.2" height="2.5" rx="0.4" fill="#10b981"/>
+
+  <!-- Scan lines emanating from shield -->
+  <path d="M6 18 C6 18 3 16 3 14" stroke="#10b981" stroke-width="0.6" opacity="0.3" fill="none" stroke-linecap="round"/>
+  <path d="M5 20 C5 20 1.5 17 1.5 13" stroke="#10b981" stroke-width="0.6" opacity="0.2" fill="none" stroke-linecap="round"/>
+  <path d="M26 18 C26 18 29 16 29 14" stroke="#10b981" stroke-width="0.6" opacity="0.3" fill="none" stroke-linecap="round"/>
+  <path d="M27 20 C27 20 30.5 17 30.5 13" stroke="#10b981" stroke-width="0.6" opacity="0.2" fill="none" stroke-linecap="round"/>
+</svg>

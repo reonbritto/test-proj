@@ -48,7 +48,7 @@ The entire stack (API, monitoring, alerting, log aggregation, load testing) runs
 ```mermaid
 graph TB
     subgraph Internet["🌐 Internet"]
-        USER["👤 User Browser\nMSAL.js + Vanilla JS"]
+        USER["👤 User Browser\nReact + TypeScript"]
     end
 
     subgraph AzureAD["☁️ Microsoft Entra ID"]
@@ -135,7 +135,7 @@ graph LR
         SAST["🔬 SAST\nCodeQL"]
         SCA["📦 SCA\nSnyk"]
         SECRET["🕵️ Secrets\nGitleaks"]
-        SBOM["📄 SBOM\nCycloneDX"]
+        SBOM["📄 SBOM\nCycloneDX Python + npm"]
         TEST["✅ Tests\npytest"]
         BUILD["🐳 Docker\nBuildx"]
         TRIVY["🔐 Trivy\nContainer Scan"]
@@ -196,7 +196,7 @@ graph LR
 ```mermaid
 sequenceDiagram
     actor User as User
-    participant FE as Browser (MSAL.js)
+    participant FE as Browser (MSAL React)
     participant API as FastAPI Backend
     participant AZ as Microsoft Entra ID
 
@@ -237,8 +237,9 @@ sequenceDiagram
 | **Log Aggregation** | Loki + Promtail — centralized log collection, search via LogQL in Grafana |
 | **Alerting** | Alertmanager → Gmail SMTP → email for critical/warning severity alerts |
 | **Load Testing** | Locust scenarios covering all endpoints with weighted traffic distribution |
+| **MITRE ATT&CK** | ATT&CK technique mapping to CWEs via CAPEC — tactics, techniques, and per-CVE ATT&CK context |
 | **Security** | Input validation, parameterised queries, defusedxml (XXE), non-root container, CORS |
-| **CI/CD** | 10-stage GitHub Actions: lint → SAST → SCA → secrets scan → SBOM → test → build → scan → push → GitOps |
+| **CI/CD** | 10-stage GitHub Actions: lint → SAST → SCA → secrets scan → SBOM (Python + npm) → test → build → scan → push → GitOps |
 | **GitOps** | ArgoCD auto-sync from `main` branch, Helm chart, automatic TLS via Let's Encrypt |
 | **Secret Management** | Azure Key Vault + External Secrets Operator + Workload Identity (zero secret sprawl) |
 | **Infrastructure** | Terraform-managed AKS cluster, Key Vault, Managed Identities, External DNS |
@@ -260,7 +261,7 @@ sequenceDiagram
 | **Alerting** | Alertmanager v0.28.1 + Gmail SMTP |
 | **Log Aggregation** | Loki 2.9.6 + Promtail 2.9.6 |
 | **Load Testing** | Locust 2.24.1 |
-| **Frontend** | Vanilla JS, HTML5, CSS3, MSAL.js |
+| **Frontend** | React 19, TypeScript, Vite, TanStack Query, MSAL React, Lucide React |
 | **Security** | defusedxml, bandit, Gitleaks, Snyk, CodeQL, Trivy |
 | **Containers** | Docker + Docker Compose |
 | **Orchestration** | Azure Kubernetes Service (AKS) |
@@ -314,7 +315,7 @@ All services start automatically. The first run downloads the MITRE CWE XML data
 | Service | URL | Notes |
 |---------|-----|-------|
 | **CWE Explorer** | http://localhost:8000 | Sign in with Microsoft |
-| **Swagger / OpenAPI** | http://localhost:8000/docs | Interactive API docs |
+| **Swagger / OpenAPI** | http://localhost:8000/docs | Interactive API docs (requires authentication) |
 | **Grafana** | http://localhost:3000 | admin / (GF_ADMIN_PASSWORD from .env) |
 | **Prometheus** | http://localhost:9090 | No auth |
 | **Alertmanager** | http://localhost:9093 | No auth |
@@ -327,7 +328,7 @@ All services start automatically. The first run downloads the MITRE CWE XML data
 
 ```
 cve-new-bri/
-├── app/                          # Backend source
+├── backend/                      # Backend source
 │   ├── main.py                   # FastAPI app, routes, lifespan, middleware
 │   ├── auth.py                   # Entra ID JWT validation (JWKS, RS256)
 │   ├── metrics.py                # Prometheus middleware (counter/histogram/gauge)
@@ -337,14 +338,20 @@ cve-new-bri/
 │   ├── analytics.py              # Risk scoring, top-CWE aggregation
 │   ├── security.py               # Input validation (CVE/CWE regex, sanitization)
 │   ├── models.py                 # Pydantic models (CVEDetail, CWEEntry, etc.)
-│   └── static/                   # Frontend (Vanilla JS + MSAL.js)
-│       ├── index.html            # Dashboard — curated CWEs, analytics
-│       ├── search.html           # CVE / CWE search with filters
-│       ├── cve.html              # CVE detail — CVSS, products, references
-│       ├── cwe.html              # CWE detail — consequences, mitigations
-│       ├── auth.js               # MSAL.js auth logic
-│       ├── common.js             # Shared utilities, XSS-safe rendering
-│       └── style.css             # Design system (CSS variables, dark mode)
+│   └── attack_parser.py          # MITRE ATT&CK mapping via CAPEC
+│
+├── frontend/                     # Frontend (React + TypeScript + Vite)
+│   ├── src/
+│   │   ├── components/           # React components (Dashboard, Search, CVE, CWE, etc.)
+│   │   ├── hooks/                # Custom hooks (TanStack Query, auth)
+│   │   ├── pages/                # Route pages
+│   │   ├── services/             # API client
+│   │   ├── App.tsx               # Root component with React Router
+│   │   └── main.tsx              # Entry point
+│   ├── index.html                # Vite HTML entry
+│   ├── vite.config.ts            # Vite configuration
+│   ├── tsconfig.json             # TypeScript config
+│   └── package.json              # npm dependencies
 │
 ├── monitoring/
 │   ├── prometheus/
@@ -426,6 +433,13 @@ cve-new-bri/
 | `GET` | `/api/cve/{cve_id}` | Full CVE detail — `CVE-2021-44228` |
 | `GET` | `/api/analytics/top-cwes` | Top CWEs by CVE count |
 | `GET` | `/api/analytics/cwe-risk` | Risk-scored CWEs (frequency × severity) |
+| `GET` | `/api/attack/tactics` | List all MITRE ATT&CK tactics |
+| `GET` | `/api/attack/techniques` | List all ATT&CK techniques |
+| `GET` | `/api/attack/cwe-map` | CWE-to-ATT&CK technique mapping via CAPEC |
+| `GET` | `/api/attack/technique/{id}` | ATT&CK technique detail |
+| `GET` | `/api/cve/{id}/attack` | ATT&CK techniques mapped to a specific CVE |
+| `GET` | `/api/services` | List available backend services |
+| `POST` | `/api/session/release` | Release current user session |
 
 ### Example
 
@@ -446,7 +460,7 @@ curl -H "Authorization: Bearer $TOKEN" \
 ```json
 {
   "status": "healthy",
-  "cwe_count": 937,
+  "cwe_count": 969,
   "cache": {
     "cve_entries": 42,
     "search_entries": 8,
@@ -576,7 +590,7 @@ graph LR
 | **Query sanitisation** | 200-char max, allowlist `[\w\s\-.,]` |
 | **Cache safety** | Redis key-value store — no SQL, no injection surface |
 | **XXE prevention** | `defusedxml` for all XML parsing |
-| **XSS prevention** | `escapeHTML()` / `textContent` in all frontend rendering |
+| **XSS prevention** | React auto-escaping (JSX) |
 | **Non-root container** | `appuser:appgroup` in Dockerfile |
 | **NVD rate limit** | 6-second minimum interval between external API calls |
 | **Secret management** | Azure Key Vault + Workload Identity — no secrets in code or env files in production |
@@ -594,7 +608,8 @@ flowchart LR
         S["🔬 SAST\nCodeQL"]:::sast
         SCA["📦 SCA\nSnyk"]:::sca
         SEC["🕵️ Secrets\nGitleaks"]:::sec
-        SBOM["📄 SBOM\nCycloneDX"]:::sbom
+        SBOM["📄 SBOM\nCycloneDX Python"]:::sbom
+        SBOM_FE["📄 Frontend SBOM\nCycloneDX npm"]:::sbom
         T["✅ Tests\npytest + coverage"]:::test
     end
 
@@ -674,7 +689,7 @@ pip install -r requirements.txt -r requirements-dev.txt
 export AZURE_TENANT_ID=your-tenant-id
 export AZURE_CLIENT_ID=your-client-id
 
-uvicorn app.main:app --reload
+uvicorn backend.main:app --reload
 # → http://localhost:8000
 ```
 
@@ -683,14 +698,14 @@ uvicorn app.main:app --reload
 ```bash
 pytest -v --tb=short               # all tests
 pytest tests/test_security.py -v   # specific module
-pytest --cov=app --cov-report=html # with coverage report
+pytest --cov=backend --cov-report=html # with coverage report
 ```
 
 ### Running Security Scans
 
 ```bash
-bandit -r app/ -ll          # SAST
-flake8 app/ tests/          # lint
+bandit -r backend/ -ll      # SAST
+flake8 backend/ tests/      # lint
 gitleaks detect --source .  # secrets scan
 ```
 

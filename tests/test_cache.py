@@ -5,7 +5,7 @@ Uses fakeredis for in-process testing without a real Redis server.
 
 import pytest
 
-from app.cache import (
+from backend.cache import (
     _hash_query,
     cleanup_expired,
     get_all_cached_cves,
@@ -34,7 +34,7 @@ def _make_fake_redis():
 def _fake_redis(monkeypatch):
     """Patch _get_redis to return a fakeredis instance for every test."""
     fake = _make_fake_redis()
-    monkeypatch.setattr("app.cache._get_redis", lambda: fake)
+    monkeypatch.setattr("backend.cache._get_redis", lambda: fake)
     yield fake
     fake.flushall()
 
@@ -115,13 +115,13 @@ class TestConcurrentUsers:
         assert register_active_user("user-1") is True
 
     def test_user_limit_enforced(self, monkeypatch):
-        monkeypatch.setattr("app.cache.MAX_CONCURRENT_USERS", 2)
+        monkeypatch.setattr("backend.cache.MAX_CONCURRENT_USERS", 2)
         assert register_active_user("user-a") is True
         assert register_active_user("user-b") is True
         assert register_active_user("user-c") is False
 
     def test_remove_user_frees_slot(self, monkeypatch):
-        monkeypatch.setattr("app.cache.MAX_CONCURRENT_USERS", 2)
+        monkeypatch.setattr("backend.cache.MAX_CONCURRENT_USERS", 2)
         register_active_user("user-a")
         register_active_user("user-b")
         remove_active_user("user-a")

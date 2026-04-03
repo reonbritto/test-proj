@@ -32,6 +32,7 @@ CAPEC_JSON_PATH = os.path.join(DATA_DIR, "stix-capec.json")
 _tactic_dict: Optional[Dict[str, AttackTactic]] = None
 _technique_dict: Optional[Dict[str, AttackTechnique]] = None
 _capec_to_techniques: Optional[Dict[str, List[AttackTechnique]]] = None
+_capec_to_cwes: Optional[Dict[str, List[str]]] = None  # CAPEC ID → CWE IDs
 
 
 def _download_json(url: str, path: str) -> Optional[str]:
@@ -150,16 +151,20 @@ def _parse_attack_stix(json_path: str) -> tuple:
 def _parse_capec_stix(
     json_path: str,
     techniques: Dict[str, AttackTechnique],
-) -> Dict[str, List[AttackTechnique]]:
-    """Parse the CAPEC STIX bundle to build CAPEC→ATT&CK mappings.
+) -> tuple:
+    """Parse the CAPEC STIX bundle to build CAPEC→ATT&CK and CAPEC→CWE mappings.
 
-    CAPEC attack-pattern objects have external_references with
-    source_name="ATTACK" pointing to ATT&CK technique IDs.
+    CAPEC attack-pattern objects have external_references with:
+    - source_name="ATTACK" pointing to ATT&CK technique IDs
+    - source_name="cwe" pointing to CWE IDs (reverse mapping)
+
+    Returns (capec_to_techniques, capec_to_cwes).
     """
     with open(json_path, "r", encoding="utf-8") as f:
         bundle = json.load(f)
 
     capec_map: Dict[str, List[AttackTechnique]] = {}
+    capec_cwe_map: Dict[str, List[str]] = {}
 
     for obj in bundle.get("objects", []):
         if obj.get("type") != "attack-pattern":
@@ -168,6 +173,7 @@ def _parse_capec_stix(
         refs = obj.get("external_references", [])
         capec_id = ""
         attack_ids = []
+        cwe_ids = []
 
         for ref in refs:
             source = ref.get("source_name", "")
@@ -178,8 +184,20 @@ def _parse_capec_stix(
                     capec_id = match.group(1)
             elif source == "ATTACK":
                 attack_ids.append(ref.get("external_id", ""))
+            elif source == "cwe":
+                cwe_ref = ref.get("external_id", "")
+                cwe_match = re.match(r"CWE-(\d+)", cwe_ref)
+                if cwe_match:
+                    cwe_ids.append(cwe_match.group(1))
 
-        if not capec_id or not attack_ids:
+        if not capec_id:
+            continue
+
+        # Store CAPEC→CWE mapping (even if no ATT&CK link)
+        if cwe_ids:
+            capec_cwe_map[capec_id] = cwe_ids
+
+        if not attack_ids:
             continue
 
         mapped = []
@@ -194,13 +212,17 @@ def _parse_capec_stix(
         if mapped:
             capec_map[capec_id] = mapped
 
-    logger.info("Parsed CAPEC STIX: %d CAPEC→ATT&CK mappings", len(capec_map))
-    return capec_map
+    logger.info(
+        "Parsed CAPEC STIX: %d CAPEC→ATT&CK mappings, "
+        "%d CAPEC→CWE mappings",
+        len(capec_map), len(capec_cwe_map),
+    )
+    return capec_map, capec_cwe_map
 
 
 def load_attack_data() -> bool:
     """Load ATT&CK + CAPEC data from STIX JSON, downloading if needed."""
-    global _tactic_dict, _technique_dict, _capec_to_techniques
+    global _tactic_dict, _technique_dict, _capec_to_techniques, _capec_to_cwes
 
     if _tactic_dict is not None:
         return True
@@ -217,6 +239,7 @@ def load_attack_data() -> bool:
         _tactic_dict = {}
         _technique_dict = {}
         _capec_to_techniques = {}
+        _capec_to_cwes = {}
         return False
 
     # Download/load CAPEC STIX
@@ -230,12 +253,13 @@ def load_attack_data() -> bool:
         _tactic_dict, _technique_dict = _parse_attack_stix(attack_path)
 
         if capec_path:
-            _capec_to_techniques = _parse_capec_stix(
+            _capec_to_techniques, _capec_to_cwes = _parse_capec_stix(
                 capec_path, _technique_dict
             )
         else:
             logger.warning("CAPEC data unavailable — no CAPEC→ATT&CK mapping")
             _capec_to_techniques = {}
+            _capec_to_cwes = {}
 
         return True
     except (json.JSONDecodeError, KeyError, OSError) as exc:
@@ -243,6 +267,7 @@ def load_attack_data() -> bool:
         _tactic_dict = {}
         _technique_dict = {}
         _capec_to_techniques = {}
+        _capec_to_cwes = {}
         return False
 
 
@@ -279,6 +304,33 @@ def get_techniques_for_capec_list(
                 seen.add(tech.id)
                 result.append(tech)
     return result
+
+
+def get_reverse_cwe_map() -> Dict[str, List[str]]:
+    """Return technique_id → list of CWE IDs via reverse CAPEC→CWE mapping.
+
+    This provides CWEs that are referenced in the CAPEC STIX bundle
+    but may not have a `related_attack_patterns` field in the CWE XML.
+    """
+    if _capec_to_techniques is None or _capec_to_cwes is None:
+        load_attack_data()
+
+    capec_techs = _capec_to_techniques or {}
+    capec_cwes = _capec_to_cwes or {}
+
+    tech_to_cwes: Dict[str, List[str]] = {}
+
+    for capec_id, techniques in capec_techs.items():
+        cwe_ids = capec_cwes.get(capec_id, [])
+        if not cwe_ids:
+            continue
+        for tech in techniques:
+            existing = tech_to_cwes.setdefault(tech.id, [])
+            for cwe_id in cwe_ids:
+                if cwe_id not in existing:
+                    existing.append(cwe_id)
+
+    return tech_to_cwes
 
 
 def get_tactics_for_techniques(

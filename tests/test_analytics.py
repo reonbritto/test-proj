@@ -1,6 +1,6 @@
 """Tests for analytics engine — top CWEs, risk scoring, edge cases."""
-from app.analytics import top_cwes, cwe_risk_scores
-from app.models import CWEEntry
+from backend.analytics import top_cwes, cwe_risk_scores
+from backend.models import CWEEntry
 
 
 # Mock CWE dictionary (simulates cwe_parser output)

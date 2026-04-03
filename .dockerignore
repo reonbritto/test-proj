@@ -38,3 +38,8 @@ DEPLOYMENT.md
 README.md
 docker-compose.yml
 requirements-dev.txt
+
+# Frontend — only need source for Docker build (npm ci + build runs inside container)
+frontend/node_modules
+frontend/dist
+frontend/.gitignore

@@ -20,9 +20,10 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      - ./app:/app/app
+      - ./backend:/app/backend
+      - ./frontend/dist:/app/backend/static:ro
       - ./data:/app/data
-    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+    command: ["uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
     environment:
       - PYTHONUNBUFFERED=1
       - AZURE_TENANT_ID=${AZURE_TENANT_ID}

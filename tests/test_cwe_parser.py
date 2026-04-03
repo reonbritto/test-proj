@@ -2,7 +2,7 @@
 import os
 import tempfile
 from unittest.mock import patch
-from app.cwe_parser import get_cwe_data, COMMON_CWES, _parse_cwe_xml
+from backend.cwe_parser import get_cwe_data, COMMON_CWES, _parse_cwe_xml
 
 
 def test_get_cwe_data_returns_list():
@@ -89,7 +89,7 @@ def test_parse_cwe_xml_extracts_weaknesses():
 
 def test_load_cwe_data_falls_back_on_failure():
     """When XML download fails, should fall back to COMMON_CWES."""
-    import app.cwe_parser as parser
+    import backend.cwe_parser as parser
     original = parser._xml_cwe_data
     parser._xml_cwe_data = None  # Reset cache
 

@@ -1,6 +1,6 @@
 """Tests for NVD API client — parsing, caching, error handling."""
 from urllib.parse import urlparse
-from app.nvd_client import parse_nvd_cve
+from backend.nvd_client import parse_nvd_cve
 
 
 # Realistic NVD API response fragment

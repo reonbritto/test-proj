@@ -1,7 +1,7 @@
 """Tests for input validation and sanitization."""
 import pytest
 from fastapi import HTTPException
-from app.security import validate_cve_id, validate_cwe_id, sanitize_search_query
+from backend.security import validate_cve_id, validate_cwe_id, sanitize_search_query
 
 
 class TestValidateCveId:

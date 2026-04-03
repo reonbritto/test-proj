@@ -8,6 +8,7 @@ clients:
   - url: http://loki:3100/loki/api/v1/push
 
 scrape_configs:
+  # ── Host system logs ──────────────────────────────
   - job_name: docker
     static_configs:
       - targets:
@@ -15,6 +16,12 @@ scrape_configs:
         labels:
           job: docker
           __path__: /var/log/*.log
+
+  # ── Docker container logs (JSON) ──────────────────
+  # Reads JSON-formatted logs written by the Docker daemon.
+  # All docker-compose services (web, redis, prometheus, etc.)
+  # write logs here. Use text filters in Grafana/LogQL to
+  # isolate specific services (e.g. |= "AUTH" for auth logs).
   - job_name: containers
     static_configs:
       - targets:

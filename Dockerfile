@@ -1,3 +1,12 @@
+# ── Stage 0: Frontend ────────────────────────────────
+FROM node:20-slim AS frontend
+
+WORKDIR /frontend
+COPY frontend/package*.json ./
+RUN npm ci --no-audit --no-fund
+COPY frontend/ .
+RUN npm run build
+
 # ── Stage 1: Builder ─────────────────────────────────
 FROM python:3.12-slim AS builder
 
@@ -32,7 +41,10 @@ RUN mkdir -p /app/data && \
     chown -R appuser:appgroup /app/data
 
 # Copy application code (this changes frequently; placing it near the end maximizes caching)
-COPY --chown=appuser:appgroup app/ ./app/
+COPY --chown=appuser:appgroup backend/ ./backend/
+
+# Copy built React frontend into the static directory
+COPY --from=frontend --chown=appuser:appgroup /frontend/dist/ ./backend/static/
 
 USER appuser
 
@@ -41,4 +53,4 @@ EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=90s --retries=5 \
     CMD python -c "import httpx; httpx.get('http://localhost:8000/api/health').raise_for_status()" || exit 1
 
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "8000"]

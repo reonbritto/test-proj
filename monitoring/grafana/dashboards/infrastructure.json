@@ -19,7 +19,7 @@
       "gridPos": { "h": 2, "w": 24, "x": 0, "y": 0 },
       "options": {
         "mode": "markdown",
-        "content": "# 🖥️ Infrastructure Overview"
+        "content": "# Infrastructure Overview"
       }
     },
     {
@@ -28,7 +28,7 @@
       "gridPos": { "h": 2, "w": 8, "x": 0, "y": 2 },
       "options": {
         "mode": "markdown",
-        "content": "👤 **${__user.login}** &nbsp;·&nbsp; ${__user.email}"
+        "content": "**${__user.login}** | ${__user.email}"
       }
     },
     {
@@ -37,7 +37,7 @@
       "gridPos": { "h": 2, "w": 8, "x": 8, "y": 2 },
       "options": {
         "mode": "markdown",
-        "content": "📋 **PureSecure — Infrastructure Monitoring** &nbsp;·&nbsp; Auto-refresh: ${__dashboard.refresh}"
+        "content": "**PureSecure — Infrastructure Monitoring** | Auto-refresh: ${__dashboard.refresh}"
       }
     },
     {
@@ -46,7 +46,7 @@
       "gridPos": { "h": 2, "w": 8, "x": 16, "y": 2 },
       "options": {
         "mode": "markdown",
-        "content": "🕒 **${__from:date:YYYY-MM-DD HH:mm}** → **${__to:date:HH:mm}**"
+        "content": "**${__from:date:YYYY-MM-DD HH:mm}** to **${__to:date:HH:mm}**"
       }
     },
 
@@ -144,14 +144,14 @@
       "options": { "colorMode": "background", "graphMode": "none", "textMode": "value_and_name" }
     },
     {
-      "title": "Running Pods",
-      "description": "Number of pods currently in Running state in the puresecure namespace.",
+      "title": "Total Running Pods",
+      "description": "Total pods in Running state across all selected namespaces.",
       "type": "stat",
       "gridPos": { "h": 4, "w": 4, "x": 12, "y": 4 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
         {
-          "expr": "count(kube_pod_status_phase{namespace=\"puresecure\",phase=\"Running\",job=\"kube-state-metrics\"})",
+          "expr": "count(kube_pod_status_phase{namespace=~\"$namespace\",phase=\"Running\",job=\"kube-state-metrics\"})",
           "legendFormat": "Running",
           "refId": "A"
         }
@@ -229,13 +229,129 @@
       "title": "",
       "type": "text",
       "gridPos": { "h": 2, "w": 24, "x": 0, "y": 8 },
-      "options": { "mode": "markdown", "content": "# ⚙️ Node Resources" }
+      "options": { "mode": "markdown", "content": "# Cluster Overview" }
+    },
+    {
+      "title": "Pods by Namespace",
+      "description": "Running pod count per namespace across the entire cluster.",
+      "type": "piechart",
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 10 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "expr": "count by (namespace) (kube_pod_status_phase{phase=\"Running\",job=\"kube-state-metrics\"})",
+          "legendFormat": "{{namespace}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": { "displayMode": "table", "placement": "right", "values": ["value", "percent"] },
+        "pieType": "donut",
+        "reduceOptions": { "calcs": ["lastNotNull"] }
+      }
+    },
+    {
+      "title": "Failed / Pending Pods (Cluster-wide)",
+      "description": "Pods not in Running state across all namespaces. Any entry here needs attention.",
+      "type": "table",
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 10 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "expr": "kube_pod_status_phase{phase!=\"Running\",phase!=\"Succeeded\",job=\"kube-state-metrics\"} == 1",
+          "legendFormat": "",
+          "refId": "A",
+          "format": "table",
+          "instant": true
+        }
+      ],
+      "transformations": [
+        { "id": "merge", "options": {} },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": { "Time": true, "__name__": true, "job": true, "Value": true, "uid": true, "instance": true },
+            "renameByName": {
+              "pod": "Pod",
+              "phase": "Phase",
+              "namespace": "Namespace"
+            },
+            "indexByName": { "Namespace": 0, "Pod": 1, "Phase": 2 }
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "Phase" },
+            "properties": [
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "Pending": { "text": "Pending", "color": "orange" },
+                      "Failed": { "text": "Failed", "color": "red" },
+                      "Unknown": { "text": "Unknown", "color": "gray" }
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "options": { "showHeader": true }
+    },
+    {
+      "title": "Container Restarts (Cluster-wide, last 1h)",
+      "description": "Top restarting containers across all namespaces.",
+      "type": "bargauge",
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 10 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "expr": "topk(15, increase(kube_pod_container_status_restarts_total{job=\"kube-state-metrics\"}[1h])) > 0",
+          "legendFormat": "{{namespace}}/{{pod}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "orange", "value": 1 },
+              { "color": "red", "value": 3 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": { "displayMode": "gradient", "orientation": "horizontal", "showUnfilled": true }
+    },
+
+    {
+      "title": "",
+      "type": "text",
+      "gridPos": { "h": 2, "w": 24, "x": 0, "y": 18 },
+      "options": { "mode": "markdown", "content": "# Node Resources" }
     },
     {
       "title": "Node CPU Usage Over Time",
       "description": "Per-node CPU utilisation over time. Helps identify sustained CPU pressure.",
       "type": "timeseries",
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 10 },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 20 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
         {
@@ -269,7 +385,7 @@
       "title": "Node Memory Usage Over Time",
       "description": "Per-node memory utilisation. High sustained memory often precedes OOMKill events.",
       "type": "timeseries",
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 10 },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 20 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
         {
@@ -303,7 +419,7 @@
       "title": "Network I/O — Receive",
       "description": "Bytes per second received across all node network interfaces.",
       "type": "timeseries",
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 18 },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 28 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
         {
@@ -328,7 +444,7 @@
       "title": "Network I/O — Transmit",
       "description": "Bytes per second transmitted across all node network interfaces.",
       "type": "timeseries",
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 18 },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 28 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
         {
@@ -353,7 +469,7 @@
       "title": "Disk I/O — Read",
       "description": "Disk read throughput in bytes per second per node.",
       "type": "timeseries",
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 26 },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 36 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
         {
@@ -378,7 +494,7 @@
       "title": "Disk I/O — Write",
       "description": "Disk write throughput in bytes per second per node.",
       "type": "timeseries",
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 26 },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 36 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
         {
@@ -403,18 +519,18 @@
     {
       "title": "",
       "type": "text",
-      "gridPos": { "h": 2, "w": 24, "x": 0, "y": 34 },
-      "options": { "mode": "markdown", "content": "# 🐳 Kubernetes — Pod & Container Health" }
+      "gridPos": { "h": 2, "w": 24, "x": 0, "y": 44 },
+      "options": { "mode": "markdown", "content": "# Kubernetes — Pod & Container Health" }
     },
     {
-      "title": "Pod Status — puresecure namespace",
-      "description": "Current phase of every pod in the puresecure namespace.",
+      "title": "Pod Status by Namespace",
+      "description": "Current phase of every pod in the selected namespace(s).",
       "type": "table",
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 36 },
+      "gridPos": { "h": 10, "w": 12, "x": 0, "y": 46 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
         {
-          "expr": "kube_pod_status_phase{namespace=\"puresecure\",job=\"kube-state-metrics\"}",
+          "expr": "kube_pod_status_phase{namespace=~\"$namespace\",job=\"kube-state-metrics\"} == 1",
           "legendFormat": "",
           "refId": "A",
           "format": "table",
@@ -426,14 +542,13 @@
         {
           "id": "organize",
           "options": {
-            "excludeByName": { "Time": true, "__name__": true, "job": true, "Value": false },
+            "excludeByName": { "Time": true, "__name__": true, "job": true, "Value": true, "uid": true, "instance": true },
             "renameByName": {
               "pod": "Pod",
               "phase": "Phase",
-              "namespace": "Namespace",
-              "Value": "Active"
+              "namespace": "Namespace"
             },
-            "indexByName": { "Namespace": 0, "Pod": 1, "Phase": 2, "Active": 3 }
+            "indexByName": { "Namespace": 0, "Pod": 1, "Phase": 2 }
           }
         }
       ],
@@ -449,10 +564,11 @@
                   {
                     "type": "value",
                     "options": {
-                      "Running": { "text": "Running ✅", "color": "green" },
-                      "Pending": { "text": "Pending ⏳", "color": "orange" },
-                      "Failed": { "text": "Failed 🔴", "color": "red" },
-                      "Unknown": { "text": "Unknown ❓", "color": "gray" }
+                      "Running": { "text": "Running", "color": "green" },
+                      "Pending": { "text": "Pending", "color": "orange" },
+                      "Failed": { "text": "Failed", "color": "red" },
+                      "Succeeded": { "text": "Succeeded", "color": "blue" },
+                      "Unknown": { "text": "Unknown", "color": "gray" }
                     }
                   }
                 ]
@@ -461,18 +577,18 @@
           }
         ]
       },
-      "options": { "showHeader": true }
+      "options": { "showHeader": true, "sortBy": [{ "displayName": "Namespace", "desc": false }] }
     },
     {
-      "title": "Container Restarts (last 1h)",
-      "description": "Number of times each container has restarted. Any non-zero value deserves investigation.",
+      "title": "Container Restarts (selected namespace, last 1h)",
+      "description": "Number of times each container has restarted in the selected namespace.",
       "type": "bargauge",
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 36 },
+      "gridPos": { "h": 10, "w": 12, "x": 12, "y": 46 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
         {
-          "expr": "increase(kube_pod_container_status_restarts_total{namespace=\"puresecure\",job=\"kube-state-metrics\"}[1h])",
-          "legendFormat": "{{pod}} / {{container}}",
+          "expr": "topk(20, increase(kube_pod_container_status_restarts_total{namespace=~\"$namespace\",job=\"kube-state-metrics\"}[1h])) > 0",
+          "legendFormat": "{{namespace}}/{{pod}}/{{container}}",
           "refId": "A"
         }
       ],
@@ -493,19 +609,69 @@
       "options": { "displayMode": "gradient", "orientation": "horizontal", "showUnfilled": true }
     },
     {
-      "title": "Pod CPU Requests vs Limits",
-      "description": "Requested and limit CPU for every pod — spot over-provisioned or under-limited workloads.",
-      "type": "bargauge",
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 44 },
+      "title": "Pod CPU Usage (actual)",
+      "description": "Actual CPU consumption per pod in the selected namespace.",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 56 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
         {
-          "expr": "sum by (pod) (kube_pod_container_resource_requests{namespace=\"puresecure\",resource=\"cpu\",job=\"kube-state-metrics\"})",
+          "expr": "sum by (pod) (rate(container_cpu_usage_seconds_total{namespace=~\"$namespace\",image!=\"\"}[5m]))",
+          "legendFormat": "{{pod}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": { "mode": "palette-classic" },
+          "custom": { "lineWidth": 1, "fillOpacity": 10 }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["mean", "max"] }
+      }
+    },
+    {
+      "title": "Pod Memory Usage (actual)",
+      "description": "Actual memory consumption per pod in the selected namespace.",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 56 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "expr": "sum by (pod) (container_memory_working_set_bytes{namespace=~\"$namespace\",image!=\"\"})",
+          "legendFormat": "{{pod}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "color": { "mode": "palette-classic" },
+          "custom": { "lineWidth": 1, "fillOpacity": 10 }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["mean", "max"] }
+      }
+    },
+    {
+      "title": "Pod CPU Requests vs Limits",
+      "description": "Requested and limit CPU for every pod.",
+      "type": "bargauge",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 64 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "expr": "sum by (pod) (kube_pod_container_resource_requests{namespace=~\"$namespace\",resource=\"cpu\",job=\"kube-state-metrics\"})",
           "legendFormat": "{{pod}} req",
           "refId": "A"
         },
         {
-          "expr": "sum by (pod) (kube_pod_container_resource_limits{namespace=\"puresecure\",resource=\"cpu\",job=\"kube-state-metrics\"})",
+          "expr": "sum by (pod) (kube_pod_container_resource_limits{namespace=~\"$namespace\",resource=\"cpu\",job=\"kube-state-metrics\"})",
           "legendFormat": "{{pod}} limit",
           "refId": "B"
         }
@@ -520,16 +686,16 @@
       "title": "Pod Memory Requests vs Limits",
       "description": "Requested and limit memory for every pod.",
       "type": "bargauge",
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 44 },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 64 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
         {
-          "expr": "sum by (pod) (kube_pod_container_resource_requests{namespace=\"puresecure\",resource=\"memory\",job=\"kube-state-metrics\"})",
+          "expr": "sum by (pod) (kube_pod_container_resource_requests{namespace=~\"$namespace\",resource=\"memory\",job=\"kube-state-metrics\"})",
           "legendFormat": "{{pod}} req",
           "refId": "A"
         },
         {
-          "expr": "sum by (pod) (kube_pod_container_resource_limits{namespace=\"puresecure\",resource=\"memory\",job=\"kube-state-metrics\"})",
+          "expr": "sum by (pod) (kube_pod_container_resource_limits{namespace=~\"$namespace\",resource=\"memory\",job=\"kube-state-metrics\"})",
           "legendFormat": "{{pod}} limit",
           "refId": "B"
         }
@@ -540,18 +706,92 @@
       },
       "options": { "displayMode": "basic", "orientation": "horizontal", "showUnfilled": true }
     },
+    {
+      "title": "OOMKilled Containers (cluster-wide, last 1h)",
+      "description": "Containers killed by OOM in the last hour across all namespaces.",
+      "type": "table",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 72 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "expr": "kube_pod_container_status_last_terminated_reason{reason=\"OOMKilled\",job=\"kube-state-metrics\"} == 1",
+          "legendFormat": "",
+          "refId": "A",
+          "format": "table",
+          "instant": true
+        }
+      ],
+      "transformations": [
+        { "id": "merge", "options": {} },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": { "Time": true, "__name__": true, "job": true, "Value": true, "uid": true, "instance": true, "reason": true },
+            "renameByName": {
+              "pod": "Pod",
+              "container": "Container",
+              "namespace": "Namespace"
+            },
+            "indexByName": { "Namespace": 0, "Pod": 1, "Container": 2 }
+          }
+        }
+      ],
+      "fieldConfig": { "defaults": {}, "overrides": [] },
+      "options": { "showHeader": true }
+    },
+    {
+      "title": "Deployment Replicas (Available vs Desired)",
+      "description": "Deployments where available replicas don't match desired across the cluster.",
+      "type": "table",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 72 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "expr": "kube_deployment_spec_replicas{namespace=~\"$namespace\",job=\"kube-state-metrics\"}",
+          "legendFormat": "",
+          "refId": "A",
+          "format": "table",
+          "instant": true
+        },
+        {
+          "expr": "kube_deployment_status_replicas_available{namespace=~\"$namespace\",job=\"kube-state-metrics\"}",
+          "legendFormat": "",
+          "refId": "B",
+          "format": "table",
+          "instant": true
+        }
+      ],
+      "transformations": [
+        { "id": "merge", "options": {} },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": { "Time": true, "__name__": true, "job": true, "uid": true, "instance": true },
+            "renameByName": {
+              "deployment": "Deployment",
+              "namespace": "Namespace",
+              "Value #A": "Desired",
+              "Value #B": "Available"
+            },
+            "indexByName": { "Namespace": 0, "Deployment": 1, "Desired": 2, "Available": 3 }
+          }
+        }
+      ],
+      "fieldConfig": { "defaults": {}, "overrides": [] },
+      "options": { "showHeader": true, "sortBy": [{ "displayName": "Namespace", "desc": false }] }
+    },
 
     {
       "title": "",
       "type": "text",
-      "gridPos": { "h": 2, "w": 24, "x": 0, "y": 52 },
-      "options": { "mode": "markdown", "content": "# 🗄️ Redis Cache" }
+      "gridPos": { "h": 2, "w": 24, "x": 0, "y": 80 },
+      "options": { "mode": "markdown", "content": "# Redis Cache" }
     },
     {
       "title": "Redis Memory Used vs Max",
       "description": "Memory consumed by Redis vs the configured maxmemory limit (128 MiB). Near-full triggers LRU eviction.",
       "type": "timeseries",
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 54 },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 82 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
         {
@@ -584,9 +824,9 @@
     },
     {
       "title": "Redis Operations Per Second",
-      "description": "Total commands processed by Redis per second — reflects cache read/write activity.",
+      "description": "Total commands processed by Redis per second.",
       "type": "timeseries",
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 54 },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 82 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
         {
@@ -611,7 +851,7 @@
       "title": "Redis Cache Hit Rate",
       "description": "Ratio of cache hits to total lookups. Below 90% means the cache is not being used effectively.",
       "type": "timeseries",
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 62 },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 90 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
         {
@@ -645,7 +885,7 @@
       "title": "Redis Keyspace — Keys Stored",
       "description": "Total number of keys currently held in Redis across all databases.",
       "type": "timeseries",
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 62 },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 90 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
         {
@@ -673,9 +913,9 @@
     },
     {
       "title": "Redis Evicted & Expired Keys",
-      "description": "Keys evicted by LRU policy (bad — cache too small) vs keys expired by TTL (normal).",
+      "description": "Keys evicted by LRU policy (bad) vs keys expired by TTL (normal).",
       "type": "timeseries",
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 70 },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 98 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
         {
@@ -708,9 +948,9 @@
     },
     {
       "title": "Redis Uptime",
-      "description": "How long the Redis instance has been running. A recent restart is a sign of a crash or pod restart.",
+      "description": "How long the Redis instance has been running.",
       "type": "stat",
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 70 },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 98 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
         {
@@ -739,14 +979,14 @@
     {
       "title": "",
       "type": "text",
-      "gridPos": { "h": 2, "w": 24, "x": 0, "y": 78 },
-      "options": { "mode": "markdown", "content": "# 🔭 Prometheus & Alertmanager Health" }
+      "gridPos": { "h": 2, "w": 24, "x": 0, "y": 106 },
+      "options": { "mode": "markdown", "content": "# Prometheus & Alertmanager Health" }
     },
     {
       "title": "Prometheus TSDB Head Samples",
-      "description": "Active time-series samples in the TSDB head block. Growing indefinitely may indicate high cardinality.",
+      "description": "Active time-series samples in the TSDB head block.",
       "type": "timeseries",
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 80 },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 108 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
         {
@@ -769,9 +1009,9 @@
     },
     {
       "title": "Prometheus Scrape Duration",
-      "description": "Time taken to scrape each target. Targets taking >5s may be slow or struggling under load.",
+      "description": "Time taken to scrape each target.",
       "type": "timeseries",
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 80 },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 108 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
         {
@@ -801,9 +1041,9 @@
     },
     {
       "title": "Alertmanager — Alerts Firing",
-      "description": "Number of alerts currently in a firing state. Any non-zero value means something needs attention.",
+      "description": "Number of alerts currently firing.",
       "type": "stat",
-      "gridPos": { "h": 6, "w": 8, "x": 0, "y": 88 },
+      "gridPos": { "h": 6, "w": 8, "x": 0, "y": 116 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
         {
@@ -830,9 +1070,9 @@
     },
     {
       "title": "Alertmanager — Notifications Sent",
-      "description": "Total notifications dispatched. Sudden spike could indicate a flapping alert.",
+      "description": "Total notifications dispatched in the last hour.",
       "type": "stat",
-      "gridPos": { "h": 6, "w": 8, "x": 8, "y": 88 },
+      "gridPos": { "h": 6, "w": 8, "x": 8, "y": 116 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
         {
@@ -859,9 +1099,9 @@
     },
     {
       "title": "Alertmanager — Failed Notifications",
-      "description": "Notifications that failed to deliver (e.g. SMTP errors). Any value > 0 means alerts may be getting lost.",
+      "description": "Notifications that failed to deliver. Any value > 0 means alerts may be getting lost.",
       "type": "stat",
-      "gridPos": { "h": 6, "w": 8, "x": 16, "y": 88 },
+      "gridPos": { "h": 6, "w": 8, "x": 16, "y": 116 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
         {
@@ -887,8 +1127,23 @@
     }
   ],
   "schemaVersion": 39,
-  "tags": ["infrastructure", "kubernetes", "redis", "node-exporter"],
-  "templating": { "list": [] },
+  "tags": ["infrastructure", "kubernetes", "redis", "node-exporter", "cluster"],
+  "templating": {
+    "list": [
+      {
+        "name": "namespace",
+        "type": "query",
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "query": "label_values(kube_pod_status_phase{job=\"kube-state-metrics\"}, namespace)",
+        "current": { "text": "All", "value": "$__all" },
+        "refresh": 2,
+        "includeAll": true,
+        "multi": true,
+        "sort": 1,
+        "allValue": ".*"
+      }
+    ]
+  },
   "time": { "from": "now-1h", "to": "now" },
   "refresh": "30s",
   "timepicker": {

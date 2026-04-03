@@ -1,10 +1,11 @@
 """Tests for FastAPI application endpoints."""
+import os
 import pytest
 from unittest.mock import patch, AsyncMock
 from fastapi.testclient import TestClient
-from app.main import app
-from app.auth import get_current_user
-from app.models import CVEDetail, CVSSScores
+from backend.main import app
+from backend.auth import get_current_user
+from backend.models import CVEDetail, CVSSScores
 
 
 # Override auth dependency for all tests — return a fake user
@@ -16,6 +17,31 @@ async def _mock_user():
 
 
 app.dependency_overrides[get_current_user] = _mock_user
+
+
+@pytest.fixture(scope="module", autouse=True)
+def _ensure_spa_index():
+    """Create a minimal index.html in backend/static/ for SPA fallback tests.
+
+    In production, Docker copies the React build output here.
+    In tests, backend/static/ is empty, so we create a placeholder.
+    """
+    static_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)),
+                              "backend", "static")
+    assets_dir = os.path.join(static_dir, "assets")
+    index_path = os.path.join(static_dir, "index.html")
+
+    os.makedirs(assets_dir, exist_ok=True)
+
+    created = not os.path.exists(index_path)
+    if created:
+        with open(index_path, "w") as f:
+            f.write("<!doctype html><html><body><div id='root'></div></body></html>")
+
+    yield
+
+    if created and os.path.exists(index_path):
+        os.remove(index_path)
 
 
 @pytest.fixture(scope="module")
@@ -44,7 +70,7 @@ MOCK_CVE = CVEDetail(
 
 
 class TestCVEEndpoint:
-    @patch("app.main.get_cve", new_callable=AsyncMock,
+    @patch("backend.main.get_cve", new_callable=AsyncMock,
            return_value=MOCK_CVE)
     def test_get_cve_success(self, mock_get, client):
         response = client.get("/api/cve/CVE-2021-44228")
@@ -53,7 +79,7 @@ class TestCVEEndpoint:
         assert data["cve_id"] == "CVE-2021-44228"
         assert data["cvss"]["v3_score"] == 10.0
 
-    @patch("app.main.get_cve", new_callable=AsyncMock,
+    @patch("backend.main.get_cve", new_callable=AsyncMock,
            return_value=None)
     def test_get_cve_not_found(self, mock_get, client):
         response = client.get("/api/cve/CVE-9999-99999")
@@ -93,9 +119,46 @@ class TestCWEEndpoints:
         assert any("CWE-79" in item.get("text", "")
                    for item in data)
 
+    def test_cwe_suggestions_use_react_routes(self, client):
+        """Suggestions should return React-style routes, not .html URLs."""
+        response = client.get("/api/cwe/suggestions?q=79")
+        data = response.json()
+        for item in data:
+            action = item.get("action", "")
+            if action:
+                assert ".html" not in action, \
+                    f"Suggestion action still uses .html: {action}"
+
+    def test_cwe_suggestions_keyword_uses_react_routes(self, client):
+        """Keyword suggestions should use /search?keyword= not /search.html."""
+        response = client.get("/api/cwe/suggestions?q=injection")
+        data = response.json()
+        for item in data:
+            action = item.get("action", "")
+            if action and "keyword" in action:
+                assert action.startswith("/search?keyword="), \
+                    f"Keyword suggestion uses old route: {action}"
+                assert ".html" not in action
+
     def test_get_cwe_invalid_id(self, client):
         response = client.get("/api/cwe/abc")
         assert response.status_code == 400
+
+
+class TestFeaturedCWEs:
+    def test_featured_cwes_returns_list(self, client):
+        response = client.get("/api/cwe/featured")
+        assert response.status_code == 200
+        data = response.json()
+        assert isinstance(data, list)
+        assert len(data) > 0
+
+    def test_featured_cwes_contain_known_entries(self, client):
+        response = client.get("/api/cwe/featured")
+        data = response.json()
+        ids = [cwe["id"] for cwe in data]
+        assert "79" in ids   # XSS
+        assert "89" in ids   # SQLi
 
 
 class TestAnalyticsEndpoints:
@@ -111,9 +174,82 @@ class TestAnalyticsEndpoints:
 
 
 class TestPublicEndpoints:
+    def test_health_endpoint(self, client):
+        response = client.get("/api/health")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["status"] == "healthy"
+        assert "cwe_count" in data
+        assert "active_users" in data
+
     def test_config_endpoint(self, client):
         response = client.get("/api/config")
         assert response.status_code == 200
         data = response.json()
         assert "client_id" in data
         assert "tenant_id" in data
+
+    def test_services_endpoint(self, client):
+        response = client.get("/api/services")
+        assert response.status_code == 200
+        data = response.json()
+        assert "grafana" in data
+        assert "prometheus" in data
+
+
+class TestSPAFallback:
+    """Tests for React SPA fallback — all client-side routes serve index.html."""
+
+    def test_root_serves_spa(self, client):
+        response = client.get("/")
+        assert response.status_code == 200
+
+    def test_login_route_serves_spa(self, client):
+        response = client.get("/login")
+        assert response.status_code == 200
+
+    def test_search_route_serves_spa(self, client):
+        response = client.get("/search")
+        assert response.status_code == 200
+
+    def test_cwe_detail_route_serves_spa(self, client):
+        response = client.get("/cwe/79")
+        assert response.status_code == 200
+
+    def test_cve_detail_route_serves_spa(self, client):
+        response = client.get("/cve/CVE-2021-44228")
+        assert response.status_code == 200
+
+    def test_attack_route_serves_spa(self, client):
+        response = client.get("/attack")
+        assert response.status_code == 200
+
+    def test_unknown_route_serves_spa(self, client):
+        """Unknown routes should still serve index.html for React Router 404."""
+        response = client.get("/nonexistent-page")
+        assert response.status_code == 200
+
+    def test_old_html_routes_no_longer_exist(self, client):
+        """Old .html file routes should not serve old files (they're deleted)."""
+        # These should still return 200 (SPA fallback) but serve
+        # index.html, not the old HTML pages
+        for path in ["/login.html", "/search.html", "/cwe.html",
+                     "/cve.html", "/attack.html", "/404.html"]:
+            response = client.get(path)
+            # SPA fallback returns index.html for these too
+            assert response.status_code == 200
+            # Verify it's NOT serving old content — old files are deleted
+            # so this should be the React SPA index.html
+            static_dir = os.path.join(
+                os.path.dirname(os.path.dirname(__file__)), "backend", "static"
+            )
+            old_file = os.path.join(static_dir, path.lstrip("/"))
+            assert not os.path.exists(old_file), \
+                f"Old file {path} should have been removed"
+
+    def test_api_routes_not_affected_by_spa(self, client):
+        """API routes should NOT be caught by the SPA fallback."""
+        response = client.get("/api/health")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["status"] == "healthy"
