@@ -461,4 +461,56 @@ data:
             annotations:
               summary: "Redis is evicting keys due to memory pressure"
               description: "Redis is evicting {{`{{ $value | humanize }}`}} keys/s. Increase the memory limit."
+
+      # ── PVC / Persistent Volume disk usage ─────────────────────────
+      - name: infra_pvc_alerts
+        rules:
+          - alert: PrometheusPVCDiskWarning
+            expr: |
+              (
+                node_filesystem_size_bytes{mountpoint="/prometheus"} -
+                node_filesystem_avail_bytes{mountpoint="/prometheus"}
+              ) / node_filesystem_size_bytes{mountpoint="/prometheus"} * 100 > 70
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: "Prometheus PVC disk above 70%"
+              description: "Prometheus data volume is {{ `{{ $value | humanize }}` }}% full. Retention or scrape interval may need tuning."
+          - alert: PrometheusPVCDiskCritical
+            expr: |
+              (
+                node_filesystem_size_bytes{mountpoint="/prometheus"} -
+                node_filesystem_avail_bytes{mountpoint="/prometheus"}
+              ) / node_filesystem_size_bytes{mountpoint="/prometheus"} * 100 > 85
+            for: 2m
+            labels:
+              severity: critical
+            annotations:
+              summary: "Prometheus PVC disk critically full"
+              description: "Prometheus data volume is {{ `{{ $value | humanize }}` }}% full. Prometheus will OOM or crash when the PVC fills."
+          - alert: LokiPVCDiskWarning
+            expr: |
+              (
+                node_filesystem_size_bytes{mountpoint="/loki"} -
+                node_filesystem_avail_bytes{mountpoint="/loki"}
+              ) / node_filesystem_size_bytes{mountpoint="/loki"} * 100 > 70
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: "Loki PVC disk above 70%"
+              description: "Loki log storage is {{ `{{ $value | humanize }}` }}% full. Compactor may not be running or retention is too long."
+          - alert: LokiPVCDiskCritical
+            expr: |
+              (
+                node_filesystem_size_bytes{mountpoint="/loki"} -
+                node_filesystem_avail_bytes{mountpoint="/loki"}
+              ) / node_filesystem_size_bytes{mountpoint="/loki"} * 100 > 85
+            for: 2m
+            labels:
+              severity: critical
+            annotations:
+              summary: "Loki PVC disk critically full — logs will be lost"
+              description: "Loki log storage is {{ `{{ $value | humanize }}` }}% full. New log writes will fail and Loki will crash."
 {{- end }}

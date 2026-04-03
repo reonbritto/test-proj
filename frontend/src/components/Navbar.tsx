@@ -1,6 +1,6 @@
 import { Link, useLocation } from 'react-router-dom';
 import { useMsal } from '@azure/msal-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useTheme } from '../hooks/useTheme';
 import { fetchServiceLinks } from '../utils/api';
 import type { ServiceLinks } from '../utils/types';
@@ -11,7 +11,7 @@ import {
   FileCode, Gauge, Server, MonitorDot, GitBranch,
   Container, Cpu, Layers, Cloud, Lock, Shield,
   BarChart3, Workflow, Blocks, FileCheck,
-  ShieldCheck, Bug, Zap, Globe, KeyRound,
+  ShieldCheck, Bug, Zap, Globe, KeyRound, Menu, X,
 } from 'lucide-react';
 
 export default function Navbar() {
@@ -19,10 +19,26 @@ export default function Navbar() {
   const { instance } = useMsal();
   const { isDark, toggle } = useTheme();
   const [services, setServices] = useState<ServiceLinks>({});
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLElement>(null);
   const account = instance.getActiveAccount();
 
   useEffect(() => {
     fetchServiceLinks().then(setServices);
+  }, []);
+
+  // Close mobile menu on route change
+  useEffect(() => { setMenuOpen(false); }, [location.pathname]);
+
+  // Close mobile menu on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
   }, []);
 
   const isActive = (path: string) =>
@@ -41,7 +57,23 @@ export default function Navbar() {
         <img src="/favicon.svg" alt="PureSecure" className="logo-favicon" />
         PureSecure <span>CWE Explorer</span>
       </Link>
-      <nav>
+
+      {/* Hamburger toggle — only visible on mobile */}
+      <div className="navbar-mobile-controls">
+        <button className="theme-toggle" aria-label="Toggle Dark Mode" onClick={toggle}>
+          {isDark ? <Sun size={18} /> : <Moon size={18} />}
+        </button>
+        <button
+          className="nav-hamburger"
+          aria-label={menuOpen ? 'Close menu' : 'Open menu'}
+          aria-expanded={menuOpen}
+          onClick={() => setMenuOpen(o => !o)}
+        >
+          {menuOpen ? <X size={20} /> : <Menu size={20} />}
+        </button>
+      </div>
+
+      <nav ref={menuRef} className={menuOpen ? 'nav-open' : ''}>
         <Link to="/" className={isActive('/')}>
           <LayoutDashboard size={15} />
           Weaknesses
@@ -285,8 +317,9 @@ export default function Navbar() {
           </div>
         </div>
 
+        {/* Desktop-only theme toggle (inside nav) */}
         <button
-          className="theme-toggle"
+          className="theme-toggle nav-desktop-only"
           aria-label="Toggle Dark Mode"
           onClick={toggle}
         >

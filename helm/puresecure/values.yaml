@@ -47,7 +47,7 @@ app:
     PYTHONUNBUFFERED: "1"
     CORS_ORIGINS: "https://reondev.top"
     REDIS_URL: "redis://redis:6379/0"
-    MAX_CONCURRENT_USERS: "3"
+    MAX_CONCURRENT_USERS: "3"   # Max number of concurrent users allowed (enforced via Redis)
     USER_SESSION_TTL: "1800"
     GRAFANA_URL: "https://grafana.reondev.top"
     ARGOCD_URL: "https://argocd.reondev.top"
@@ -127,6 +127,9 @@ prometheus:
   replicas: 1
   port: 9090
   retention: 15d
+  # Hard size cap — Prometheus will purge oldest data before filling the PVC
+  # Set to ~80% of PVC size to leave headroom for WAL and compaction temp files
+  retentionSize: 4GB
   resources:
     requests:
       cpu: 100m
@@ -214,7 +217,7 @@ loki:
   image: grafana/loki:2.9.6
   replicas: 1
   port: 3100
-  retention: 168h
+  retention: 120h
   resources:
     requests:
       cpu: 100m
