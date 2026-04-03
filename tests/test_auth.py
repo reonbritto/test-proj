@@ -47,8 +47,7 @@ class TestPublicEndpoints:
         assert resp.status_code == 200
         data = resp.json()
         assert data["status"] == "healthy"
-        assert "cwe_count" in data
-        assert "cache" in data
+        assert list(data.keys()) == ["status"]
 
     def test_config_no_auth_required(self, unauth_client):
         resp = unauth_client.get("/api/config")

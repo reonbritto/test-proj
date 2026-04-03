@@ -179,8 +179,7 @@ class TestPublicEndpoints:
         assert response.status_code == 200
         data = response.json()
         assert data["status"] == "healthy"
-        assert "cwe_count" in data
-        assert "active_users" in data
+        assert list(data.keys()) == ["status"]
 
     def test_config_endpoint(self, client):
         response = client.get("/api/config")
@@ -194,7 +193,10 @@ class TestPublicEndpoints:
         assert response.status_code == 200
         data = response.json()
         assert "grafana" in data
-        assert "prometheus" in data
+        assert "argocd" in data
+        assert "prometheus" not in data
+        assert "redis" not in data
+        assert "kube-state-metrics" not in data
 
 
 class TestSPAFallback:
