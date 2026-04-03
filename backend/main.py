@@ -209,15 +209,8 @@ async def api_release_session(request: Request):
 
 @app.get("/api/health")
 def api_health():
-    """Health check with cache stats and active user count (public)."""
-    stats = cache.get_cache_stats()
-    return {
-        "status": "healthy",
-        "cwe_count": len(cwe_data),
-        "cache": stats,
-        "active_users": cache.get_active_user_count(),
-        "max_concurrent_users": cache.MAX_CONCURRENT_USERS,
-    }
+    """Health check — liveness probe only (public)."""
+    return {"status": "healthy"}
 
 
 @app.get("/api/config")
@@ -231,18 +224,10 @@ def api_config():
 
 @app.get("/api/services")
 def api_services():
-    """Return monitoring and infra service URLs for the frontend nav (public)."""
+    """Return external-facing service URLs for the frontend nav (public)."""
     return {
         "grafana": os.environ.get("GRAFANA_URL", "http://localhost:3000"),
-        "prometheus": os.environ.get("PROMETHEUS_URL", "http://localhost:9090"),
-        "alertmanager": os.environ.get("ALERTMANAGER_URL", "http://localhost:9093"),
-        "loki": os.environ.get("LOKI_URL", "http://localhost:3100"),
-        "locust": os.environ.get("LOCUST_URL", "http://localhost:8089"),
         "argocd": os.environ.get("ARGOCD_URL", "https://argocd.reondev.top"),
-        "redis": os.environ.get("REDIS_URL", "redis://localhost:6379/0"),
-        "redis-exporter": os.environ.get("REDIS_EXPORTER_URL", "http://localhost:9121"),
-        "kube-state-metrics": os.environ.get("KUBE_STATE_METRICS_URL", "http://localhost:8080"),
-        "node-exporter": os.environ.get("NODE_EXPORTER_URL", "http://localhost:9100"),
     }
 
 
