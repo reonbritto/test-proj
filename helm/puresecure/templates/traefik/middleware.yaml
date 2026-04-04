@@ -8,11 +8,13 @@ spec:
   headers:
     browserXssFilter: true
     contentTypeNosniff: true
-    frameDeny: true
+    # X-Frame-Options intentionally omitted: CSP "frame-ancestors 'none'" (below)
+    # is the modern replacement and strictly stronger. Having both creates a
+    # configuration conflict (frameDeny=DENY vs customFrameOptionsValue=SAMEORIGIN)
+    # and ambiguous fallback for legacy clients.
     stsIncludeSubdomains: true
     stsPreload: true
     stsSeconds: 31536000
-    customFrameOptionsValue: "SAMEORIGIN"
     referrerPolicy: "strict-origin-when-cross-origin"
     accessControlAllowOriginList:
       - "https://reondev.top"
