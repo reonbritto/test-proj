@@ -13,7 +13,7 @@
 [![Loki](https://img.shields.io/badge/Loki-2.9.6-F46800?logo=grafana&logoColor=white)](https://grafana.com/oss/loki/)
 [![License](https://img.shields.io/badge/License-MIT-22c55e)](LICENSE)
 
-[**Live Demo**](https://reondev.top) · [**Grafana Dashboard**](https://grafana.reondev.top/d/cwe-explorer-api) · [**ArgoCD**](https://argocd.reondev.top)
+[**Live Demo**]() · [**Grafana Dashboard**]() · [**ArgoCD**]()
 
 </div>
 
@@ -649,9 +649,9 @@ The app runs on **Azure Kubernetes Service** behind **Traefik** with automatic T
 
 | Service | URL |
 |---------|-----|
-| CWE Explorer | https://reondev.top |
-| Grafana | https://grafana.reondev.top |
-| ArgoCD | https://argocd.reondev.top |
+| CWE Explorer |   |
+| Grafana |   |
+| ArgoCD |   |
 | Prometheus | `kubectl port-forward svc/prometheus 9090` |
 | Loki | `kubectl port-forward svc/loki 3100` (or via Grafana Explore) |
 | Locust | `kubectl port-forward svc/locust 8089` |
