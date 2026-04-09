@@ -1,741 +1,565 @@
-<div align="center">
-
 # PureSecure CWE Explorer
 
-**A production-grade security intelligence platform for browsing, searching, and analysing CVE & CWE vulnerability data — with real-time observability, log aggregation, GitOps deployment, and Microsoft Entra ID authentication.**
-
-[![CI/CD](https://img.shields.io/github/actions/workflow/status/reonbritto/test-proj/ci-cd.yml?label=CI%2FCD&logo=github)](https://github.com/reonbritto/test-proj/actions)
-[![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white)](https://python.org)
-[![FastAPI](https://img.shields.io/badge/FastAPI-0.135-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
-[![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white)](https://docs.docker.com/compose/)
-[![Kubernetes](https://img.shields.io/badge/AKS-Kubernetes-326CE5?logo=kubernetes&logoColor=white)](https://azure.microsoft.com/en-us/products/kubernetes-service)
-[![Grafana](https://img.shields.io/badge/Grafana-10.4-F46800?logo=grafana&logoColor=white)](https://grafana.com)
-[![Loki](https://img.shields.io/badge/Loki-2.9.6-F46800?logo=grafana&logoColor=white)](https://grafana.com/oss/loki/)
-[![License](https://img.shields.io/badge/License-MIT-22c55e)](LICENSE)
-
-[**Live Demo**]() · [**Grafana Dashboard**]() · [**ArgoCD**]()
-
-</div>
+Search, browse, and analyse CVE and CWE vulnerability data.
 
 ---
 
-## What is this?
+## Application security
 
-PureSecure CWE Explorer queries the **NIST National Vulnerability Database (NVD) API 2.0** in real-time and provides a clean, searchable interface for security professionals to:
+| Control | Description |
+|---------|-------------|
+| Microsoft Entra ID (MSAL) | RS256 JWT validation against Azure JWKS. API keys compared with `secrets.compare_digest` (constant time) |
+| Concurrent user limits | Sessions tracked per user in Redis with 30 min TTL. Returns 429 when the limit is hit |
+| XSS prevention | CSP locks scripts to `self`, blocks objects and framing. X-XSS-Protection and nosniff headers set. React does not use `dangerouslySetInnerHTML` |
+| XXE prevention | All XML parsing goes through `defusedxml.ElementTree` (CWE-611). External entities are blocked |
+| Input validation | CVE/CWE IDs checked by regex. Free text queries capped at 200 chars, stripped to alphanumeric plus spaces, hyphens, dots |
+| SQL/Command injection | Inputs stripped of `;` `'` `"` and other metacharacters. No SQL database exists (Redis + in-memory). NVD API calls use parameterised requests |
+| CSRF protection | Auth uses stateless JWTs in the Authorization header, not cookies. API is GET only with `allow_credentials=False` |
+| Path traversal prevention | SPA fallback uses `os.path.realpath` with prefix check. Paths like `.env`, `.git`, `terraform/` return 404 |
+| CORS | Locked to `https://reondev.top`, GET only, no credentials |
+| Rate limiting | Traefik middleware, 100 avg / 200 burst per minute |
+| Security headers | HSTS (1 year, preload, subdomains), `upgrade-insecure-requests`, server banner stripped |
+| Security tests | 24+ tests for XSS payloads, SQL injection strings, format validation, Unicode bypass |
 
-- Browse and search **CVEs** (Common Vulnerabilities and Exposures) with CVSS severity scores
-- Explore **CWE** (Common Weakness Enumeration) definitions — 969+ weaknesses from the official MITRE XML dataset
-- Visualise vulnerability trends via **Grafana** dashboards (API metrics, infrastructure, logs)
-- Search and filter application logs in real-time via **Loki** log aggregation
-- Get email alerts when critical error rates or latency thresholds are breached via **Alertmanager**
+## Infrastructure security
 
-The entire stack (API, monitoring, alerting, log aggregation, load testing) runs locally with a single `docker compose up`, and deploys to production on AKS via **ArgoCD GitOps**.
+| Control | Description |
+|---------|-------------|
+| TLS | Let's Encrypt via cert-manager. HTTP permanently redirects to HTTPS |
+| Secrets management | External Secrets Operator pulls from Azure Key Vault using Workload Identity. No credentials stored in the cluster |
+| Container hardening | `runAsNonRoot: true`, `allowPrivilegeEscalation: false`, read only filesystem where possible |
+| RBAC | Kube State Metrics can only `list` and `watch` |
+| Image security | All tags pinned (no `:latest`), `imagePullPolicy: Always`, resource limits set on every pod |
+| Monitoring | Prometheus, Grafana, Loki. Metrics, dashboards, and logs in one place for auditing |
+| Alerting | Alertmanager sends email over TLS. SMTP credentials come from Key Vault |
+| CI/CD security | Semgrep SAST, secret detection, Gemnasium dependency scanning, Trivy container scan, CycloneDX SBOM |
 
 ---
 
-## Screenshots
+## Infrastructure decisions
 
-| Dashboard | CVE Detail | Grafana |
-|:---------:|:----------:|:-------:|
-| ![Dashboard](https://placehold.co/320x200/1e293b/94a3b8?text=CWE+Dashboard) | ![CVE Detail](https://placehold.co/320x200/1e293b/94a3b8?text=CVE+Detail) | ![Grafana](https://placehold.co/320x200/1e293b/94a3b8?text=Grafana+Panels) |
+| Tool | Purpose |
+|------|---------|
+| AKS | Managed Kubernetes with Workload Identity and OIDC |
+| Terraform | Provisions AKS, Key Vault, Managed Identities, RBAC |
+| Helm | 42 templates in a single chart |
+| ArgoCD | GitOps, auto syncs from `main` branch |
+| GitLab CI | 8 stage pipeline: lint, security, sbom, test, build, scan, publish, deploy |
+| Self-hosted GitLab Runner | Docker executor on AWS EC2 Ubuntu VM |
+| Traefik | Ingress controller, IngressRoute CRDs, middleware chain |
+| cert-manager | TLS certificates from Let's Encrypt, auto renewal |
+| ExternalDNS | DNS A record management in Azure DNS |
+| External Secrets Operator | Syncs Key Vault secrets into Kubernetes |
+| Docker / DockerHub | Image builds and registry |
+| Redis | Session store and cache, LRU eviction |
+| Prometheus | Scrapes metrics from app, Redis, node, Kubernetes |
+| Grafana | Three dashboards: API, Infrastructure, Logs |
+| Loki + Promtail | Log aggregation and shipping |
+| Alertmanager | Alert routing, email via Gmail SMTP |
+| Locust | Load testing |
+| Trivy | Container image vulnerability scanning in CI |
+| Semgrep (SAST) | Static analysis via GitLab template |
+| Gemnasium (SCA) | Dependency scanning via GitLab template |
+| GitLab Secret Detection | Catches secrets before they get committed |
+| CycloneDX | SBOM generation for Python and frontend dependencies |
 
 ---
 
 ## Architecture
 
-### System Overview
-
 ```mermaid
-graph TB
-    subgraph Internet["🌐 Internet"]
-        USER["👤 User Browser\nReact + TypeScript"]
+%%{init: {'theme': 'base', 'themeVariables': {'fontSize': '14px', 'lineColor': '#94a3b8', 'primaryTextColor': '#1e293b'}}}%%
+flowchart TD
+    User(["<b>User</b>"])
+
+    User -->|HTTPS| DNS
+
+    subgraph INTERNET[" "]
+        direction LR
+        DNS["<b>Azure DNS</b><br/>reondev.top / grafana / argocd"]
+        ExtDNS["<b>ExternalDNS</b><br/><i>Auto A records</i>"]
+        ExtDNS -.->|manage| DNS
     end
 
-    subgraph AzureAD["☁️ Microsoft Entra ID"]
-        JWKS["🔑 JWKS Endpoint\nRS256 signing keys"]
-        OAUTH["🔐 OAuth 2.0\nAuthorization Server"]
-    end
+    DNS --> Traefik
 
-    subgraph NVD["🛡️ NIST / MITRE"]
-        NVDAPI["📡 NVD API 2.0\nservices.nvd.nist.gov"]
-        MITRE["📋 MITRE CWE XML\n969+ weaknesses"]
-    end
+    subgraph AKS["<b>Azure Kubernetes Service</b>"]
 
-    subgraph App["🐳 Docker Compose / AKS"]
-        direction TB
-
-        subgraph Backend["⚡ FastAPI Application :8000"]
-            MAIN["🚀 main.py\nRoutes & Middleware"]
-            AUTH["🔒 auth.py\nJWT Validation"]
-            NVD_C["🌐 nvd_client.py\nRate-limited HTTP"]
-            CWE_P["📂 cwe_parser.py\nXML Parser"]
-            CACHE["💾 cache.py\nRedis TTL Cache"]
-            SEC["🛡️ security.py\nInput Validation"]
-            METRICS_M["📊 metrics.py\nPrometheus Middleware"]
+        subgraph INGRESS["Ingress"]
+            Traefik["<b>Traefik</b><br/>CSP / HSTS / Rate Limit<br/>HTTP to HTTPS redirect"]
+            CertMgr["<b>cert-manager</b><br/>Let's Encrypt / auto-renew"]
+            CertMgr -.->|TLS certs| Traefik
         end
 
-        subgraph Observability["📈 Observability Stack"]
-            PROM["🔥 Prometheus :9090\nMetrics & Alert Rules"]
-            GRAF["📊 Grafana :3000\n3 Dashboards"]
-            ALERT["🚨 Alertmanager :9093\nEmail via Gmail SMTP"]
-            LOKI["📜 Loki :3100\nLog Aggregation"]
-            PROMTAIL["📋 Promtail\nLog Shipper (DaemonSet)"]
-            LOCUST["🦗 Locust :8089\nLoad Testing"]
+        subgraph APPLICATION["Application"]
+            App["<b>CWE Explorer</b><br/>FastAPI + React<br/>JWT / XSS / XXE / CSRF<br/>Input validation / CORS"]
+            Redis[("<b>Redis 7</b><br/>Sessions / Cache<br/>LRU / TTL / 128MB")]
+            App <-->|sessions and cache| Redis
         end
 
-        REDIS[("🟥 Redis\nCache + User Tracking")]
+        subgraph OBSERVABILITY["Observability"]
+            Prometheus["<b>Prometheus</b><br/>6 scrape targets / 31 recording rules<br/>29 alert rules / 15s interval"]
+            Grafana["<b>Grafana</b><br/>3 dashboards / 20+ panels<br/>API / Infra / Logs"]
+            Loki["<b>Loki</b><br/>Log aggregation<br/>120h retention"]
+            AM["<b>Alertmanager</b><br/>Email routing / TLS<br/>Critical + Warning"]
+            Promtail["<b>Promtail</b><br/>DaemonSet"]
+            NodeExp["<b>Node Exporter</b><br/>DaemonSet"]
+            RedisExp["<b>Redis Exporter</b>"]
+            KSM["<b>Kube State Metrics</b>"]
+        end
+
+        subgraph GITOPS["GitOps"]
+            ArgoCD["<b>ArgoCD</b><br/>auto-sync from main<br/>self-heal / prune"]
+        end
+
+        subgraph SECRETS["Secrets"]
+            ESO["<b>External Secrets<br/>Operator</b>"]
+            K8sSec["<b>K8s Secrets</b><br/>6 synced secrets"]
+            ESO --> K8sSec
+        end
     end
 
-    USER -- "🔐 HTTPS / Bearer JWT" --> MAIN
-    MAIN --> AUTH & NVD_C & CWE_P & SEC & METRICS_M
-    AUTH -- "fetch keys" --> JWKS
-    USER -- "login" --> OAUTH
-    NVD_C -- "⏱️ rate-limited 6s" --> NVDAPI
-    CWE_P -- "startup" --> MITRE
-    NVD_C & CWE_P --> CACHE --> REDIS
-    METRICS_M -- "/metrics" --> PROM
-    PROM --> GRAF & ALERT
-    PROMTAIL -- "pod logs" --> LOKI
-    LOKI --> GRAF
-    ALERT -- "📧 email alert" --> USER
-    LOCUST -- "🔁 load test" --> MAIN
+    subgraph AZURE["<b>Azure Platform</b>"]
+        KV["<b>Azure Key Vault</b><br/>RBAC / soft delete<br/>6 secrets"]
+        MID["<b>Managed Identities</b><br/>Workload Identity<br/>OIDC federation"]
+    end
 
-    style USER fill:#1d4ed8,stroke:#3b82f6,color:#fff,rx:8
-    style JWKS fill:#7c3aed,stroke:#8b5cf6,color:#fff
-    style OAUTH fill:#6d28d9,stroke:#7c3aed,color:#fff
-    style NVDAPI fill:#b45309,stroke:#d97706,color:#fff
-    style MITRE fill:#92400e,stroke:#b45309,color:#fff
-    style MAIN fill:#065f46,stroke:#10b981,color:#fff
-    style AUTH fill:#dc2626,stroke:#ef4444,color:#fff
-    style NVD_C fill:#0e7490,stroke:#06b6d4,color:#fff
-    style CWE_P fill:#0e7490,stroke:#06b6d4,color:#fff
-    style CACHE fill:#5b21b6,stroke:#7c3aed,color:#fff
-    style SEC fill:#b91c1c,stroke:#dc2626,color:#fff
-    style METRICS_M fill:#166534,stroke:#22c55e,color:#fff
-    style PROM fill:#c2410c,stroke:#f97316,color:#fff
-    style GRAF fill:#b45309,stroke:#f59e0b,color:#fff
-    style ALERT fill:#991b1b,stroke:#ef4444,color:#fff
-    style LOKI fill:#b45309,stroke:#f59e0b,color:#fff
-    style PROMTAIL fill:#92400e,stroke:#d97706,color:#fff
-    style LOCUST fill:#1e40af,stroke:#3b82f6,color:#fff
-    style REDIS fill:#991b1b,stroke:#ef4444,color:#fff
+    subgraph EXTERNAL["<b>External Services</b>"]
+        MSAL["<b>Microsoft Entra ID</b><br/>OAuth2 / MSAL / JWKS"]
+        SMTP["<b>Gmail SMTP</b><br/>TLS / port 587"]
+        Hub["<b>DockerHub</b><br/>Container Registry"]
+        GL[("<b>GitLab</b><br/>QUB EEECS<br/>Source of truth")]
+    end
+
+    Traefik -->|reondev.top| App
+    Traefik -->|grafana.reondev.top| Grafana
+    Traefik -->|argocd.reondev.top| ArgoCD
+
+    App -->|/metrics| Prometheus
+    Prometheus -->|scrape| NodeExp
+    Prometheus -->|scrape| RedisExp
+    Prometheus -->|scrape| KSM
+    Prometheus -->|alert rules| AM
+    Grafana -->|query metrics| Prometheus
+    Grafana -->|query logs| Loki
+    Promtail -->|ship pod logs| Loki
+
+    App -->|JWT validate| MSAL
+    AM -->|email alerts| SMTP
+    ArgoCD -->|pull Helm chart| GL
+    Hub -.->|pull image| App
+
+    KV -->|Workload Identity| ESO
+    MID -.->|federated creds| ESO
+    MID -.->|federated creds| ExtDNS
+    K8sSec -.->|inject| App
+    K8sSec -.->|inject| AM
+    K8sSec -.->|inject| Grafana
+
+    style AKS fill:#f0f9ff,stroke:#0284c7,stroke-width:3px,color:#0c4a6e
+    style INGRESS fill:#e0f2fe,stroke:#0284c7,stroke-width:2px,color:#0c4a6e
+    style APPLICATION fill:#dcfce7,stroke:#16a34a,stroke-width:2px,color:#14532d
+    style OBSERVABILITY fill:#fce7f3,stroke:#db2777,stroke-width:2px,color:#831843
+    style GITOPS fill:#ede9fe,stroke:#7c3aed,stroke-width:2px,color:#4c1d95
+    style SECRETS fill:#fee2e2,stroke:#dc2626,stroke-width:2px,color:#7f1d1d
+    style AZURE fill:#fff7ed,stroke:#ea580c,stroke-width:2px,color:#7c2d12
+    style EXTERNAL fill:#f1f5f9,stroke:#64748b,stroke-width:2px,color:#334155
+    style INTERNET fill:#fefce8,stroke:#ca8a04,stroke-width:2px,color:#713f12
+    style User fill:#1e40af,stroke:#1e3a8a,stroke-width:2px,color:#fff
+    style App fill:#065f46,stroke:#059669,stroke-width:2px,color:#fff
+    style Redis fill:#1e3a5f,stroke:#0284c7,stroke-width:2px,color:#fff
+    style Traefik fill:#0c4a6e,stroke:#0284c7,stroke-width:2px,color:#fff
+    style CertMgr fill:#0c4a6e,stroke:#0284c7,stroke-width:2px,color:#fff
+    style ArgoCD fill:#4c1d95,stroke:#7c3aed,stroke-width:2px,color:#fff
+    style Prometheus fill:#831843,stroke:#db2777,stroke-width:2px,color:#fff
+    style Grafana fill:#831843,stroke:#db2777,stroke-width:2px,color:#fff
+    style Loki fill:#831843,stroke:#db2777,stroke-width:2px,color:#fff
+    style AM fill:#831843,stroke:#db2777,stroke-width:2px,color:#fff
+    style Promtail fill:#9d174d,stroke:#db2777,stroke-width:1px,color:#fff
+    style NodeExp fill:#9d174d,stroke:#db2777,stroke-width:1px,color:#fff
+    style RedisExp fill:#9d174d,stroke:#db2777,stroke-width:1px,color:#fff
+    style KSM fill:#9d174d,stroke:#db2777,stroke-width:1px,color:#fff
+    style ESO fill:#7f1d1d,stroke:#dc2626,stroke-width:2px,color:#fff
+    style K8sSec fill:#7f1d1d,stroke:#dc2626,stroke-width:2px,color:#fff
+    style KV fill:#7c2d12,stroke:#ea580c,stroke-width:2px,color:#fff
+    style MID fill:#7c2d12,stroke:#ea580c,stroke-width:2px,color:#fff
+    style MSAL fill:#334155,stroke:#64748b,stroke-width:2px,color:#fff
+    style SMTP fill:#334155,stroke:#64748b,stroke-width:2px,color:#fff
+    style Hub fill:#334155,stroke:#64748b,stroke-width:2px,color:#fff
+    style GL fill:#334155,stroke:#64748b,stroke-width:2px,color:#fff
+    style DNS fill:#713f12,stroke:#ca8a04,stroke-width:2px,color:#fff
+    style ExtDNS fill:#713f12,stroke:#ca8a04,stroke-width:2px,color:#fff
 ```
 
-### Production Deployment (AKS + GitOps)
+## CI/CD pipeline
 
 ```mermaid
-graph LR
-    subgraph Dev["👨‍💻 Developer"]
-        CODE["📝 git push\nmain branch"]
+%%{init: {'theme': 'base', 'themeVariables': {'fontSize': '14px', 'lineColor': '#94a3b8'}}}%%
+flowchart TD
+    Dev(["<b>Developer</b><br/>git push origin dev"])
+
+    Dev -->|push| DevBranch
+
+    subgraph GITLAB["<b>GitLab — QUB EEECS Self-Managed</b>"]
+
+        DevBranch["<b>dev</b> branch"]
+        MR{"<b>Merge<br/>Request</b>"}
+        MainBranch["<b>main</b> branch"]
+
+        DevBranch -->|open MR| MR
+        MR -->|approve and merge| MainBranch
     end
 
-    subgraph CI["⚙️ GitHub Actions CI/CD"]
-        direction TB
-        LINT["🔍 Lint\nFlake8"]
-        SAST["🔬 SAST\nCodeQL"]
-        SCA["📦 SCA\nSnyk"]
-        SECRET["🕵️ Secrets\nGitleaks"]
-        SBOM["📄 SBOM\nCycloneDX Python + npm"]
-        TEST["✅ Tests\npytest"]
-        BUILD["🐳 Docker\nBuildx"]
-        TRIVY["🔐 Trivy\nContainer Scan"]
-        PUSH["🚀 Push\nDockerHub"]
-        GITOPS["🔄 GitOps\nUpdate image tag"]
-
-        LINT --> SAST --> SCA --> SECRET --> SBOM --> TEST --> BUILD --> TRIVY --> PUSH --> GITOPS
+    subgraph DEVPIPE["<b>Quality Gates — dev branch push</b>"]
+        direction LR
+        L["<b>1. Lint</b><br/>Flake8<br/>TSC + Vite"]
+        S["<b>2. Security</b><br/>SAST (Semgrep)<br/>Secret Detection<br/>SCA (Gemnasium)"]
+        SB["<b>3. SBOM</b><br/>CycloneDX<br/>Python + npm"]
+        T["<b>4. Test</b><br/>Pytest<br/>Coverage"]
+        L --> S --> SB --> T
     end
 
-    subgraph GitOps["🔄 GitOps"]
-        ARGO["🐙 ArgoCD\nWatches main branch"]
-        HELM["⎈ Helm Chart\npuresecure/"]
+    subgraph MAINPIPE["<b>Release Pipeline — merge to main</b>"]
+        direction LR
+        B["<b>5. Build</b><br/>Docker dind<br/>Multi-stage"]
+        SC["<b>6. Scan</b><br/>Trivy<br/>CRITICAL + HIGH"]
+        P["<b>7. Publish</b><br/>DockerHub<br/>SHA + latest"]
+        D["<b>8. Deploy</b><br/>Update Helm tag<br/>values.yaml"]
+        B --> SC --> P --> D
     end
 
-    subgraph K8s["☸️ Azure Kubernetes Service"]
-        direction TB
-        TRAEFIK["🌐 Traefik Ingress\nLet's Encrypt TLS"]
-        APP_POD["⚡ App Pods\nFastAPI"]
-        PROM_POD["🔥 Prometheus\n+ Grafana"]
-        LOKI_POD["📜 Loki + Promtail\nLog Aggregation"]
+    DevBranch --> L
+    MainBranch --> B
 
-        subgraph Secrets["🔐 Secret Management"]
-            ESO["🔁 External Secrets\nOperator"]
-            KV["🏦 Azure\nKey Vault"]
-            MI["🪪 Workload\nIdentity"]
-        end
+    subgraph RUNNER["<b>GitLab Runner</b>"]
+        R["<b>AWS EC2 Ubuntu</b><br/>Docker executor<br/>dind privileged"]
     end
 
-    CODE --> CI
-    GITOPS -- "📝 commits values.yaml" --> ARGO
-    ARGO --> HELM --> TRAEFIK --> APP_POD & PROM_POD & LOKI_POD
-    MI --> KV --> ESO --> APP_POD
+    subgraph DEPLOY["<b>Deployment</b>"]
+        Hub[("<b>DockerHub</b><br/>Registry")]
+        Argo["<b>ArgoCD</b><br/>GitOps sync"]
+        Cluster["<b>AKS Cluster</b><br/>12 pods"]
+    end
 
-    style CODE fill:#1f2937,stroke:#4b5563,color:#f9fafb
-    style LINT fill:#166534,stroke:#22c55e,color:#fff
-    style SAST fill:#1e40af,stroke:#3b82f6,color:#fff
-    style SCA fill:#0e7490,stroke:#06b6d4,color:#fff
-    style SECRET fill:#6d28d9,stroke:#8b5cf6,color:#fff
-    style SBOM fill:#0f766e,stroke:#14b8a6,color:#fff
-    style TEST fill:#065f46,stroke:#10b981,color:#fff
-    style BUILD fill:#1d4ed8,stroke:#60a5fa,color:#fff
-    style TRIVY fill:#b91c1c,stroke:#ef4444,color:#fff
-    style PUSH fill:#0369a1,stroke:#38bdf8,color:#fff
-    style GITOPS fill:#7c2d12,stroke:#f97316,color:#fff
-    style ARGO fill:#312e81,stroke:#818cf8,color:#fff
-    style HELM fill:#1e3a5f,stroke:#60a5fa,color:#fff
-    style TRAEFIK fill:#065f46,stroke:#34d399,color:#fff
-    style APP_POD fill:#064e3b,stroke:#10b981,color:#fff
-    style PROM_POD fill:#7c2d12,stroke:#fb923c,color:#fff
-    style LOKI_POD fill:#b45309,stroke:#f59e0b,color:#fff
-    style ESO fill:#4c1d95,stroke:#a78bfa,color:#fff
-    style KV fill:#0c4a6e,stroke:#38bdf8,color:#fff
-    style MI fill:#1e1b4b,stroke:#818cf8,color:#fff
-```
+    R -.->|execute stages| L
+    R -.->|execute stages| B
+    P -->|push image| Hub
+    D -->|"commit tag [skip ci]"| MainBranch
+    Argo -->|watch main branch| MainBranch
+    Argo -->|sync Helm chart| Cluster
+    Hub -.->|pull image| Cluster
 
-### Authentication Flow
-
-```mermaid
-sequenceDiagram
-    actor User as User
-    participant FE as Browser (MSAL React)
-    participant API as FastAPI Backend
-    participant AZ as Microsoft Entra ID
-
-    User->>+FE: Access application
-    FE->>+API: GET /api/config
-    API-->>-FE: Return client_id and tenant_id
-
-    FE->>+AZ: Initiate OAuth 2.0 Authorization Code Flow\n(scopes: openid, profile, email)
-    AZ-->>-FE: Issue JWT access token (RS256)
-    FE-->>-User: Application initialized
-
-    Note over User,AZ: Authenticated Request Flow
-
-    User->>+FE: Request data (CVE/CWE search)
-    FE->>+API: GET /api/cwe?query=injection\nAuthorization: Bearer token
-
-    API->>+AZ: Retrieve JWKS (cached, periodic refresh)
-    AZ-->>-API: Provide public signing keys
-
-    API->>API: Validate token (signature, issuer, audience, expiry)
-    API-->>-FE: Return JSON response
-    FE-->>-User: Render sanitized results
+    style GITLAB fill:#fff7ed,stroke:#ea580c,stroke-width:3px,color:#7c2d12
+    style DEVPIPE fill:#e0f2fe,stroke:#0284c7,stroke-width:2px,color:#0c4a6e
+    style MAINPIPE fill:#dcfce7,stroke:#16a34a,stroke-width:2px,color:#14532d
+    style RUNNER fill:#f1f5f9,stroke:#64748b,stroke-width:2px,color:#334155
+    style DEPLOY fill:#ede9fe,stroke:#7c3aed,stroke-width:2px,color:#4c1d95
+    style Dev fill:#1e40af,stroke:#1e3a8a,stroke-width:2px,color:#fff
+    style DevBranch fill:#ea580c,stroke:#c2410c,stroke-width:2px,color:#fff
+    style MainBranch fill:#ea580c,stroke:#c2410c,stroke-width:2px,color:#fff
+    style MR fill:#fbbf24,stroke:#d97706,stroke-width:2px,color:#000
+    style L fill:#0c4a6e,stroke:#0284c7,stroke-width:2px,color:#fff
+    style S fill:#0c4a6e,stroke:#0284c7,stroke-width:2px,color:#fff
+    style SB fill:#0c4a6e,stroke:#0284c7,stroke-width:2px,color:#fff
+    style T fill:#0c4a6e,stroke:#0284c7,stroke-width:2px,color:#fff
+    style B fill:#065f46,stroke:#059669,stroke-width:2px,color:#fff
+    style SC fill:#065f46,stroke:#059669,stroke-width:2px,color:#fff
+    style P fill:#065f46,stroke:#059669,stroke-width:2px,color:#fff
+    style D fill:#065f46,stroke:#059669,stroke-width:2px,color:#fff
+    style R fill:#334155,stroke:#64748b,stroke-width:2px,color:#fff
+    style Hub fill:#4c1d95,stroke:#7c3aed,stroke-width:2px,color:#fff
+    style Argo fill:#4c1d95,stroke:#7c3aed,stroke-width:2px,color:#fff
+    style Cluster fill:#4c1d95,stroke:#7c3aed,stroke-width:2px,color:#fff
 ```
 
 ---
 
-## Features
+## Prometheus metrics
 
-| Category | Feature |
-|----------|---------|
-| **CVE Search** | Real-time keyword search, CWE filter, severity filter, debounced autocomplete |
-| **CVE Detail** | CVSS v2 + v3 scores, severity badges, affected products (CPE), references |
-| **CWE Browsing** | 969+ MITRE definitions — consequences, mitigations, detection methods, taxonomy |
-| **Analytics** | Top CWEs by CVE count, composite risk scoring (frequency × severity) |
-| **Authentication** | Microsoft Entra ID (Azure AD) JWT — supports Work + Personal Microsoft accounts |
-| **Caching** | Redis with 1h TTL, concurrent user tracking (max 3 configurable), LRU eviction |
-| **Monitoring** | Prometheus metrics, 17 recording rules, 11 alerting rules, 3 Grafana dashboards (API, Infrastructure, Logs) |
-| **Log Aggregation** | Loki + Promtail — centralized log collection, search via LogQL in Grafana |
-| **Alerting** | Alertmanager → Gmail SMTP → email for critical/warning severity alerts |
-| **Load Testing** | Locust scenarios covering all endpoints with weighted traffic distribution |
-| **MITRE ATT&CK** | ATT&CK technique mapping to CWEs via CAPEC — tactics, techniques, and per-CVE ATT&CK context |
-| **Security** | Input validation, parameterised queries, defusedxml (XXE), non-root container, CORS |
-| **CI/CD** | 10-stage GitHub Actions: lint → SAST → SCA → secrets scan → SBOM (Python + npm) → test → build → scan → push → GitOps |
-| **GitOps** | ArgoCD auto-sync from `main` branch, Helm chart, automatic TLS via Let's Encrypt |
-| **Secret Management** | Azure Key Vault + External Secrets Operator + Workload Identity (zero secret sprawl) |
-| **Infrastructure** | Terraform-managed AKS cluster, Key Vault, Managed Identities, External DNS |
+### Scrape targets (15s interval)
+
+| Target | Endpoint | Metrics |
+|--------|----------|---------|
+| CWE Explorer | `web:8000/metrics` | `http_requests_total`, `http_request_duration_seconds`, `http_requests_in_progress` |
+| Prometheus | `localhost:9090` | Internal Prometheus metrics |
+| Alertmanager | `alertmanager:9093` | Alertmanager health and notification metrics |
+| Node Exporter | `node-exporter:9100` | CPU, memory, disk, network per node |
+| Kube State Metrics | `kube-state-metrics:8080` | Pod status, container restarts, deployments |
+| Redis Exporter | `redis-exporter:9121` | Memory usage, hit rate, ops/sec, evictions |
+
+### Recording rules
+
+| Group | Rules | Examples |
+|-------|-------|---------|
+| Request rates | 4 rules | `cwe:http_requests:rate1m`, by endpoint, by status, detailed 5m |
+| Error rates | 4 rules | `cwe:http_errors_5xx:rate1m`, `cwe:http_error_ratio_5xx`, 4xx equivalents |
+| Latency | 6 rules | `cwe:http_latency_p50/p90/p95/p99:5m`, p95 by endpoint, avg by endpoint |
+| Availability | 5 rules | `cwe:http_availability:5m`, in-progress total, requests total |
+| Node infra | 5 rules | `infra:node_cpu_usage:percent5m`, memory, disk, network rx/tx |
+| Kubernetes | 3 rules | `infra:pods_running:count`, not running, container restarts |
+| Redis | 4 rules | `infra:redis_memory_usage:ratio`, hit rate, ops/sec, evictions |
 
 ---
 
-## Tech Stack
+## Alert rules (29 rules, 6 groups)
+
+### Application alerts
+
+| Alert | Severity | Condition |
+|-------|----------|-----------|
+| APIDown | Critical | `up{job="cwe-explorer"} == 0` for 2m |
+| HighServerErrorRate | Critical | 5xx error ratio > 5% for 2m |
+| HighClientErrorRate | Warning | 4xx error ratio > 25% for 5m |
+| LowAvailability | Critical | Availability < 99% for 5m |
+| HighP95Latency | Warning | p95 latency > 1s for 5m |
+| CriticalP95Latency | Critical | p95 latency > 5s for 2m |
+| HighP99Latency | Warning | p99 latency > 3s for 5m |
+| SlowEndpoint | Warning | Endpoint p95 > 2s for 5m |
+| NoTraffic | Warning | Request rate = 0 for 10m |
+| HighConcurrency | Warning | In-progress requests > 50 for 2m |
+| TrafficSpike | Critical | 10x above 1h average for 2m |
+
+### Infrastructure alerts
+
+| Alert | Severity | Condition |
+|-------|----------|-----------|
+| NodeHighCPU | Warning | CPU > 80% for 10m |
+| NodeCriticalCPU | Critical | CPU > 90% for 5m |
+| NodeHighMemory | Warning | Memory > 85% for 5m |
+| NodeCriticalMemory | Critical | Memory > 95% for 2m |
+| NodeDiskSpaceWarning | Warning | Disk > 75% for 5m |
+| NodeDiskSpaceCritical | Critical | Disk > 90% for 2m |
+| NodeExporterDown | Critical | Node exporter unreachable for 2m |
+| PodNotRunning | Warning | Pod not in Running/Succeeded for 5m |
+| PodFailed | Critical | Pod in Failed phase for 1m |
+| ContainerFrequentRestarts | Warning | > 3 restarts/hour |
+| KubeStateMetricsDown | Critical | KSM unreachable for 2m |
+| RedisDown | Critical | Redis unreachable for 1m |
+| RedisHighMemory | Warning | Memory > 80% of max for 5m |
+| RedisCriticalMemory | Critical | Memory > 95% of max for 2m |
+| RedisLowHitRate | Warning | Hit rate < 80% for 10m |
+| RedisEvicting | Critical | Eviction rate > 0 for 5m |
+| PrometheusPVCDiskWarning | Warning | /prometheus > 70% for 5m |
+| PrometheusPVCDiskCritical | Critical | /prometheus > 85% for 2m |
+
+### Alertmanager routing
+
+| Receiver | Severity | Group Wait | Repeat Interval |
+|----------|----------|------------|-----------------|
+| email-critical | Critical | 10s | 1h |
+| email-warning | Warning | 30s | 4h |
+
+Grouped by `alertname` and `severity`. Sent over Gmail SMTP with TLS. When a critical alert fires, inhibition rules suppress the corresponding warnings (APIDown silences latency warnings, for example).
+
+---
+
+## Grafana dashboards
+
+### API dashboard
+
+Shows total requests, 2xx/4xx/5xx breakdowns, requests per second by endpoint, traffic over time (stacked), and pie charts for endpoint, method, and status code distribution.
+
+### Infrastructure dashboard
+
+Pod status, node CPU and memory across nodes, container restart counts, Redis memory usage, and cache hit rate.
+
+### Logs dashboard
+
+Pulls from Loki. Promtail ships all pod logs. 120 hour retention, filterable by namespace, pod, and container.
+
+---
+
+## API endpoints
+
+### Public (no auth)
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/health` | Liveness probe |
+| GET | `/api/config` | MSAL client config (client_id, tenant_id) |
+| GET | `/api/services` | External service URLs (Grafana, ArgoCD) |
+| GET | `/metrics` | Prometheus metrics |
+
+### Protected (JWT required)
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/cwe` | Search CWEs (query, limit) |
+| GET | `/api/cwe/featured` | 29 curated CWEs (OWASP Top 10) |
+| GET | `/api/cwe/suggestions` | Autocomplete suggestions |
+| GET | `/api/cwe/{cwe_id}` | CWE detail |
+| GET | `/api/cwe/{cwe_id}/cves` | CVEs associated with a CWE |
+| GET | `/api/cve/{cve_id}` | Full CVE detail from NVD API |
+| GET | `/api/cve/{cve_id}/attack` | MITRE ATT&CK mapping (CAPEC techniques/tactics) |
+| GET | `/api/attack/tactics` | All MITRE ATT&CK tactics |
+| GET | `/api/attack/techniques` | Techniques (filter by tactic) |
+| GET | `/api/attack/cwe-map` | CWE-to-technique mapping |
+| GET | `/api/attack/technique/{id}` | Technique detail + subtechniques + CWEs |
+| GET | `/api/analytics/top-cwes` | CWEs ranked by CVE count |
+| GET | `/api/analytics/cwe-risk` | Risk scores (frequency x severity) |
+| POST | `/api/session/release` | Release user session (logout) |
+
+---
+
+## Terraform resources
+
+| Resource | Name | Details |
+|----------|------|---------|
+| Resource Group | `rg-puresecure` | Location: Canada Central |
+| AKS Cluster | `aks-puresecure` | Free tier, Workload Identity, OIDC issuer, auto-scaling 1-3 nodes |
+| Key Vault | `kv-puresecure-prod` | 6 secrets, RBAC enabled, 90-day soft delete |
+| Managed Identity | `eso-identity` | Key Vault Secrets User role, federated to K8s SA |
+| Managed Identity | `externaldns-identity` | DNS Zone Contributor role, federated to K8s SA |
+| DNS Zone | `reondev.top` | Pre-existing (data source), used by ExternalDNS |
+
+---
+
+## ArgoCD
+
+Auto-syncs from `main` branch with self-heal and prune enabled. Watches the `helm/puresecure` path and applies Helm chart changes to the AKS cluster.
+
+---
+
+## Load testing (Locust)
+
+11 scenarios hitting the API with weighted traffic:
+
+| Task | Weight | Endpoint |
+|------|--------|----------|
+| List CWEs | 5 | `GET /api/cwe` (random limit: 5/10/25/50) |
+| Search CWEs | 4 | `GET /api/cwe?query=` (15 search terms) |
+| CWE Detail | 3 | `GET /api/cwe/{id}` (22 sample CWE IDs) |
+| Suggestions | 3 | `GET /api/cwe/suggestions` |
+| CWE CVEs | 2 | `GET /api/cwe/{id}/cves` |
+| Top CWEs | 2 | `GET /api/analytics/top-cwes` |
+| Risk Scores | 1 | `GET /api/analytics/cwe-risk` |
+| Health Check | 1 | `GET /api/health` |
+
+---
+
+## Test suite
+
+8 files, 24+ security tests:
+
+| File | Tests | Coverage |
+|------|-------|----------|
+| `test_main.py` | 20+ | API endpoints, auth, SPA fallback, blocked paths |
+| `test_security.py` | 24 | XSS payloads, SQL injection, path traversal, Unicode bypass |
+| `test_cwe_parser.py` | 5 | XML parsing, CWE data extraction |
+| `test_nvd_client.py` | 6 | CVE API requests, pagination, CVSS scoring |
+| `test_cache.py` | 8 | Redis operations, TTL, session management |
+| `test_auth.py` | 4 | JWT validation, JWKS, concurrent users |
+| `test_analytics.py` | 4 | Top CWEs, risk score calculation |
+
+---
+
+## Helm chart
+
+42 templates, 13 component directories:
+
+| Component | Templates | Resources |
+|-----------|-----------|-----------|
+| App | 4 | Deployment, ConfigMap, PVC (2Gi), Service |
+| Redis | 2 | Deployment (7-alpine, 128MB LRU), Service |
+| Prometheus | 4 | Deployment (v2.51.2, 15d retention), ConfigMap, PVC (5Gi), Service |
+| Grafana | 6 | Deployment (10.4.2), 3 ConfigMaps (auth, dashboard, provisioning), PVC (2Gi), Service |
+| Alertmanager | 5 | Deployment (v0.28.1), 2 ConfigMaps (config, email templates), Secret, Service |
+| Loki | 4 | Deployment (2.9.6, 120h retention), ConfigMap, PVC (5Gi), Service |
+| Promtail | 2 | DaemonSet (2.9.6), ConfigMap |
+| Locust | 3 | Deployment (2.24.1), ConfigMap (locustfile.py), Service |
+| Exporters | 3 | Redis Exporter, Node Exporter (DaemonSet), Kube State Metrics + RBAC |
+| Traefik | 2 | IngressRoute (3 hosts), Middleware (security headers, rate limit, redirect) |
+| cert-manager | 2 | ClusterIssuer (Let's Encrypt), Certificate (wildcard) |
+| Secrets | 2 | SecretStore (Azure KV), ExternalSecret (6 secrets) |
+| Namespace | 1 | Namespace |
+
+---
+
+## Docker image
+
+Three stage build:
+
+| Stage | Base Image | Purpose |
+|-------|-----------|---------|
+| 1. Frontend | `node:20-slim` | `npm ci && npm run build`, compiles React/TypeScript/Vite |
+| 2. Builder | `python:3.12-slim` | `pip install`, builds Python dependencies |
+| 3. Runtime | `python:3.12-slim` | Copies built frontend + Python packages into the final image |
+
+Runs as non-root (`appuser:appgroup`). OS packages patched at build time. Healthcheck hits `/api/health` every 30s with 5 retries. Listens on port 8000.
+
+---
+
+## Frontend pages
+
+| Route | Page | Description |
+|-------|------|-------------|
+| `/` | Dashboard | Featured CWEs, OWASP Top 10, stats overview |
+| `/search` | Search | Keyword/CWE search with autocomplete and filters |
+| `/cwe/:id` | CWE Detail | Full CWE information with related CVEs |
+| `/cve/:id` | CVE Detail | CVE severity, CVSS scores, affected products |
+| `/attack` | ATT&CK Matrix | MITRE ATT&CK tactics/techniques with CWE overlay |
+| `/login` | Login | Microsoft Entra ID sign-in (MSAL) |
+
+---
+
+## Tech stack
 
 | Layer | Technology |
 |-------|-----------|
-| **Language** | Python 3.10+ |
-| **API Framework** | FastAPI 0.135 + Uvicorn |
-| **HTTP Client** | httpx (async) |
-| **Data Validation** | Pydantic v2 |
-| **Cache** | Redis 7 (TTL-based keys, LRU eviction) |
-| **Auth** | Microsoft Entra ID — PyJWT + JWKS |
-| **Metrics** | prometheus-client (Counter / Histogram / Gauge) |
-| **Monitoring** | Prometheus v2.51.2 + Grafana 10.4.2 |
-| **Alerting** | Alertmanager v0.28.1 + Gmail SMTP |
-| **Log Aggregation** | Loki 2.9.6 + Promtail 2.9.6 |
-| **Load Testing** | Locust 2.24.1 |
-| **Frontend** | React 19, TypeScript, Vite, TanStack Query, MSAL React, Lucide React |
-| **Security** | defusedxml, bandit, Gitleaks, Snyk, CodeQL, Trivy |
-| **Containers** | Docker + Docker Compose |
-| **Orchestration** | Azure Kubernetes Service (AKS) |
-| **Package Manager** | Helm 3 |
-| **GitOps** | ArgoCD |
-| **Infrastructure** | Terraform + Azure (AKS, Key Vault, DNS) |
-| **CI/CD** | GitHub Actions |
+| Frontend | React 18, TypeScript, Vite, Tailwind CSS |
+| Auth | @azure/msal-react, @azure/msal-browser |
+| Data Fetching | @tanstack/react-query |
+| Backend | Python 3.12, FastAPI, Uvicorn |
+| HTTP Client | httpx (async) |
+| Auth Validation | PyJWT (RS256), Azure JWKS |
+| XML Parsing | defusedxml |
+| Metrics | prometheus-client |
+| Cache | Redis 7 (redis-py) |
+| Testing | pytest, pytest-cov, flake8 |
+| SBOM | cyclonedx-py |
 
 ---
 
-## Quick Start
+## Key Vault secrets
 
-### Prerequisites
-
-- [Docker Desktop](https://www.docker.com/products/docker-desktop/) (includes Docker Compose)
-- An [Azure App Registration](https://portal.azure.com/#view/Microsoft_AAD_RegisteredApps) (free) — for Microsoft login
-
-### 1. Clone & Configure
-
-```bash
-git clone https://github.com/reonbritto/test-proj.git
-cd test-proj
-
-cp .env.example .env
-```
-
-Edit `.env` with your Azure credentials:
-
-```env
-AZURE_TENANT_ID=your-tenant-id
-AZURE_CLIENT_ID=your-client-id
-
-GF_ADMIN_USER=admin
-GF_ADMIN_PASSWORD=your-grafana-password
-
-# Alertmanager email relay (Gmail App Password)
-ALERTMANAGER_SMTP_USERNAME=you@gmail.com
-ALERTMANAGER_SMTP_PASSWORD=xxxx xxxx xxxx xxxx
-```
-
-### 2. Start the Full Stack
-
-```bash
-docker compose up --build
-```
-
-All services start automatically. The first run downloads the MITRE CWE XML dataset.
-
-### 3. Open the App
-
-| Service | URL | Notes |
-|---------|-----|-------|
-| **CWE Explorer** | http://localhost:8000 | Sign in with Microsoft |
-| **Swagger / OpenAPI** | http://localhost:8000/docs | Interactive API docs (requires authentication) |
-| **Grafana** | http://localhost:3000 | admin / (GF_ADMIN_PASSWORD from .env) |
-| **Prometheus** | http://localhost:9090 | No auth |
-| **Alertmanager** | http://localhost:9093 | No auth |
-| **Loki** | http://localhost:3100 | No auth (query via Grafana Explore) |
-| **Locust** | http://localhost:8089 | No auth |
+| Secret | Used By |
+|--------|---------|
+| `azure-tenant-id` | App (MSAL config) |
+| `azure-client-id` | App (MSAL config) |
+| `service-api-key` | App (internal service auth) |
+| `gf-admin-password` | Grafana (admin login) |
+| `alertmanager-smtp-username` | Alertmanager (email auth) |
+| `alertmanager-smtp-password` | Alertmanager (email auth) |
 
 ---
 
-## Project Structure
+## Project structure
 
 ```
-cve-new-bri/
-├── backend/                      # Backend source
-│   ├── main.py                   # FastAPI app, routes, lifespan, middleware
-│   ├── auth.py                   # Entra ID JWT validation (JWKS, RS256)
-│   ├── metrics.py                # Prometheus middleware (counter/histogram/gauge)
-│   ├── nvd_client.py             # NVD API 2.0 client (async, rate-limited)
-│   ├── cwe_parser.py             # MITRE CWE XML parser (969+ weaknesses)
-│   ├── cache.py                  # Redis cache (1h TTL, concurrent user enforcement)
-│   ├── analytics.py              # Risk scoring, top-CWE aggregation
-│   ├── security.py               # Input validation (CVE/CWE regex, sanitization)
-│   ├── models.py                 # Pydantic models (CVEDetail, CWEEntry, etc.)
-│   └── attack_parser.py          # MITRE ATT&CK mapping via CAPEC
-│
-├── frontend/                     # Frontend (React + TypeScript + Vite)
-│   ├── src/
-│   │   ├── components/           # React components (Dashboard, Search, CVE, CWE, etc.)
-│   │   ├── hooks/                # Custom hooks (TanStack Query, auth)
-│   │   ├── pages/                # Route pages
-│   │   ├── services/             # API client
-│   │   ├── App.tsx               # Root component with React Router
-│   │   └── main.tsx              # Entry point
-│   ├── index.html                # Vite HTML entry
-│   ├── vite.config.ts            # Vite configuration
-│   ├── tsconfig.json             # TypeScript config
-│   └── package.json              # npm dependencies
-│
-├── monitoring/
-│   ├── prometheus/
-│   │   ├── prometheus.yml        # Scrape config + Alertmanager target
-│   │   └── rules/
-│   │       ├── recording_rules.yml   # 17 pre-computed PromQL queries
-│   │       └── alerting_rules.yml    # 11 alert rules (critical + warning)
-│   ├── alertmanager/
-│   │   ├── alertmanager.yml      # Routing tree, Gmail SMTP, inhibition rules
-│   │   └── templates/
-│   │       └── puresecure.tmpl   # HTML email template with severity colours
-│   ├── loki/
-│   │   └── loki.yaml            # Loki config (monolithic mode, filesystem storage)
-│   ├── promtail/
-│   │   └── promtail.yaml        # Promtail config (Docker log scraping)
-│   └── grafana/
-│       ├── provisioning/         # Auto-provisioned datasources (Prometheus + Loki) + dashboard
-│       └── dashboards/
-│           ├── cwe-explorer.json # 18-panel API monitoring dashboard
-│           ├── infrastructure.json # Node/K8s/Redis infrastructure dashboard
-│           └── logs.json         # Loki log explorer dashboard
-│
-├── helm/puresecure/              # Production Helm chart
-│   ├── Chart.yaml
-│   ├── values.yaml               # All config — image tag updated by CI/CD
-│   └── templates/                # K8s Deployments, Services, Ingress, Secrets
-│       ├── app/
-│       ├── prometheus/
-│       ├── grafana/
-│       ├── alertmanager/
-│       ├── loki/                 # Loki Deployment, Service, ConfigMap, PVC
-│       ├── promtail/             # Promtail DaemonSet, ConfigMap, RBAC
-│       └── secrets/              # ExternalSecret → Azure Key Vault
-│
-├── argocd/
-│   ├── application.yaml          # ArgoCD App syncing helm/puresecure from main
-│   └── project.yaml              # ArgoCD project with RBAC
-│
-├── terraform/                    # Infrastructure as Code
-│   ├── main.tf                   # AKS cluster, Key Vault, Managed Identities
-│   ├── variables.tf
-│   ├── outputs.tf
-│   └── terraform.tfvars.example
-│
-├── tests/                        # pytest test suite
-│   ├── test_main.py
-│   ├── test_auth.py
-│   ├── test_cwe_parser.py
-│   ├── test_nvd_client.py
-│   └── test_security.py
-│
-├── locust/locustfile.py          # Load test scenarios (7 weighted tasks)
-├── Dockerfile                    # Multi-stage, non-root, Python 3.12-slim
-├── docker-compose.yml            # Local full stack
-└── .github/workflows/ci-cd.yml  # 10-stage CI/CD pipeline
+├── backend/                  # FastAPI application
+│   ├── main.py               # App entrypoint, routes, middleware
+│   ├── auth.py               # JWT validation, MSAL verification
+│   ├── security.py           # Input validation, sanitisation
+│   ├── cwe_parser.py         # CWE XML parsing (defusedxml)
+│   ├── nvd_client.py         # NVD API client (httpx)
+│   ├── cache.py              # Redis session/cache manager
+│   └── attack_mapper.py      # MITRE ATT&CK CAPEC mapping
+├── frontend/src/             # React SPA
+│   ├── pages/                # Dashboard, Search, CweDetail, CveDetail, AttackMatrix, Login
+│   ├── components/           # Navbar, Footer, SearchInput, CWECard, SeverityBadge
+│   └── hooks/                # useApi, useTheme
+├── helm/puresecure/          # Helm chart (42 templates)
+│   ├── templates/            # K8s manifests (13 subdirectories)
+│   └── values.yaml           # All configurable values
+├── terraform/                # IaC (AKS, Key Vault, Identities)
+│   ├── main.tf               # Resources
+│   ├── variables.tf          # Input variables
+│   └── outputs.tf            # Terraform outputs
+├── argocd/                   # GitOps manifests
+│   ├── application.yaml      # ArgoCD Application (points to Helm chart)
+│   └── project.yaml          # ArgoCD AppProject
+├── tests/                    # Test suite (8 files)
+├── .gitlab-ci.yml            # 8-stage CI/CD pipeline
+├── Dockerfile                # Multi-stage build
+└── docker-compose.yml        # Local development (9 services)
 ```
-
----
-
-## API Reference
-
-### Public Endpoints
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `GET` | `/api/health` | Health check — cache stats, CWE count |
-| `GET` | `/api/config` | Entra ID config for MSAL.js |
-| `GET` | `/metrics` | Prometheus metrics (text/plain) |
-
-### Protected Endpoints (Bearer token required)
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `GET` | `/api/cwe` | List / search CWEs — `?query=&limit=` |
-| `GET` | `/api/cwe/featured` | Curated 30 CWEs (OWASP Top 10 + more) |
-| `GET` | `/api/cwe/suggestions` | Autocomplete — `?q=` |
-| `GET` | `/api/cwe/{id}` | Full CWE detail |
-| `GET` | `/api/cwe/{id}/cves` | CVEs mapped to a CWE |
-| `GET` | `/api/cve/{cve_id}` | Full CVE detail — `CVE-2021-44228` |
-| `GET` | `/api/analytics/top-cwes` | Top CWEs by CVE count |
-| `GET` | `/api/analytics/cwe-risk` | Risk-scored CWEs (frequency × severity) |
-| `GET` | `/api/attack/tactics` | List all MITRE ATT&CK tactics |
-| `GET` | `/api/attack/techniques` | List all ATT&CK techniques |
-| `GET` | `/api/attack/cwe-map` | CWE-to-ATT&CK technique mapping via CAPEC |
-| `GET` | `/api/attack/technique/{id}` | ATT&CK technique detail |
-| `GET` | `/api/cve/{id}/attack` | ATT&CK techniques mapped to a specific CVE |
-| `GET` | `/api/services` | List available backend services |
-| `POST` | `/api/session/release` | Release current user session |
-
-### Example
-
-```bash
-# No auth — health check
-curl http://localhost:8000/api/health
-
-# With Bearer token
-TOKEN="eyJ..."
-curl -H "Authorization: Bearer $TOKEN" \
-  "http://localhost:8000/api/cwe?query=injection&limit=5"
-
-curl -H "Authorization: Bearer $TOKEN" \
-  "http://localhost:8000/api/cve/CVE-2021-44228"
-```
-
-**Health response:**
-```json
-{
-  "status": "healthy",
-  "cwe_count": 969,
-  "cache": {
-    "cve_entries": 42,
-    "search_entries": 8,
-    "redis_used_memory_bytes": 1048576
-  },
-  "active_users": 1,
-  "max_concurrent_users": 3
-}
-```
-
----
-
-## Observability
-
-### Prometheus Metrics
-
-| Metric | Type | Labels |
-|--------|------|--------|
-| `http_requests_total` | Counter | `method`, `endpoint`, `status_code` |
-| `http_request_duration_seconds` | Histogram | `method`, `endpoint` |
-| `http_requests_in_progress` | Gauge | `method`, `endpoint` |
-
-Path normalisation prevents label cardinality explosion — `/api/cwe/79` → `/api/cwe/{id}`.
-
-### Alert Rules
-
-| Alert | Condition | Severity |
-|-------|-----------|----------|
-| **APIDown** | `/metrics` unreachable for 2 min | 🔴 Critical |
-| **HighServerErrorRate** | > 5% of requests are 5xx | 🔴 Critical |
-| **LowAvailability** | Availability < 99% | 🔴 Critical |
-| **TrafficSpike** | 10× normal request rate | 🔴 Critical |
-| **CriticalP95Latency** | p95 > 5 seconds | 🔴 Critical |
-| **HighClientErrorRate** | > 25% requests are 4xx | 🟡 Warning |
-| **HighP95Latency** | p95 > 1 second | 🟡 Warning |
-| **HighP99Latency** | p99 > 3 seconds | 🟡 Warning |
-| **SlowEndpoint** | Any endpoint p95 > 2s | 🟡 Warning |
-| **NoTraffic** | Zero requests for 10 min | 🟡 Warning |
-| **HighConcurrency** | > 50 in-progress requests | 🟡 Warning |
-
-Critical alerts are inhibited when `APIDown` fires (no spam). Email delivered via Gmail SMTP to your configured address.
-
-### Grafana Dashboards
-
-Three pre-provisioned dashboards:
-
-**1. CWE Explorer — API Monitoring** (18 panels):
-
-| Section | Panels |
-|---------|--------|
-| 📊 **Overview** | Total requests, 2xx, 4xx, 5xx stat counters |
-| 🚦 **Traffic** | Requests/sec, cumulative traffic, breakdown by endpoint / method / status |
-| ⏱️ **Latency** | p50 / p95 / p99 time series, per-endpoint p95, heatmap |
-| 🔴 **Errors & Connections** | 5xx error rate, in-progress requests gauge |
-| 📋 **Request Log** | Full table — method, endpoint, status, count, rate, avg response time |
-
-**2. Infrastructure Monitoring** — Node CPU/memory/disk, K8s pod health, Redis cache, Prometheus self-monitoring.
-
-**3. Logs (Loki)** — Log volume per pod, application logs, auth/login logs, error log filtering. Query logs via Grafana **Explore** using LogQL.
-
-### Log Aggregation (Loki + Promtail)
-
-Centralized log collection for all pods in the cluster:
-
-| Component | Role | Deployment |
-|-----------|------|------------|
-| **Loki** | Log storage & query engine (LogQL) | Deployment (1 replica, 5Gi PVC) |
-| **Promtail** | Log shipper — tails pod logs from each node | DaemonSet (1 per node) |
-
-Promtail auto-discovers all pod logs via Kubernetes service discovery and ships them to Loki. Logs are queryable in Grafana via the **Explore** tab or the pre-built **Logs** dashboard.
-
-**LogQL examples:**
-
-```logql
-# All logs from the app namespace
-{namespace="puresecure"}
-
-# User login events
-{namespace="puresecure"} |= "AUTH user login"
-
-# Errors across all pods
-{namespace="puresecure"} |~ "(?i)(error|exception|traceback)"
-
-# Logs from a specific pod
-{namespace="puresecure", pod=~"cwe-explorer.*"}
-```
-
-**Local (docker-compose):**
-
-```logql
-# All container logs
-{job=~".+"}
-
-# Filter by keyword
-{job=~".+"} |= "AUTH user login"
-```
-
----
-
-## Security
-
-```mermaid
-graph LR
-    REQ(["🌐 Incoming\nRequest"])
-    CORS["🛡️ CORS\nOrigin Allowlist\nGET-only"]
-    JWT["🔐 JWT Validation\nRS256 · JWKS cached 1h\nAudience check"]
-    INPUT["🔍 Input Validation\nCVE regex · CWE regex\n200-char limit · allowlist"]
-    RDS["💾 Redis Cache\nKey-value store\nNo SQL injection"]
-    NVD(["✅ NVD API\nRate limited · 6s\nSafe external call"])
-
-    REQ --> CORS --> JWT --> INPUT --> RDS --> NVD
-
-    style REQ fill:#1e293b,stroke:#94a3b8,color:#e2e8f0
-    style CORS fill:#5b21b6,stroke:#a78bfa,color:#fff
-    style JWT fill:#991b1b,stroke:#fca5a5,color:#fff
-    style INPUT fill:#92400e,stroke:#fcd34d,color:#fff
-    style RDS fill:#075985,stroke:#7dd3fc,color:#fff
-    style NVD fill:#065f46,stroke:#6ee7b7,color:#fff
-```
-
-| Layer | Implementation |
-|-------|---------------|
-| **Authentication** | RS256 JWT — JWKS cached 1h, multi-tenant + personal Microsoft accounts |
-| **CORS** | Restricted to app origin, GET-only |
-| **CVE ID validation** | Strict regex `^CVE-\d{4}-\d{4,}$` |
-| **CWE ID validation** | Numeric-only `^\d+$` |
-| **Query sanitisation** | 200-char max, allowlist `[\w\s\-.,]` |
-| **Cache safety** | Redis key-value store — no SQL, no injection surface |
-| **XXE prevention** | `defusedxml` for all XML parsing |
-| **XSS prevention** | React auto-escaping (JSX) |
-| **Non-root container** | `appuser:appgroup` in Dockerfile |
-| **NVD rate limit** | 6-second minimum interval between external API calls |
-| **Secret management** | Azure Key Vault + Workload Identity — no secrets in code or env files in production |
-
----
-
-## CI/CD Pipeline
-
-```mermaid
-flowchart LR
-    PUSH(["📝 git push\nmain"]):::push --> PAR
-
-    subgraph PAR["⚡ Parallel — runs on every push"]
-        L["🔍 Lint\nFlake8"]:::lint
-        S["🔬 SAST\nCodeQL"]:::sast
-        SCA["📦 SCA\nSnyk"]:::sca
-        SEC["🕵️ Secrets\nGitleaks"]:::sec
-        SBOM["📄 SBOM\nCycloneDX Python"]:::sbom
-        SBOM_FE["📄 Frontend SBOM\nCycloneDX npm"]:::sbom
-        T["✅ Tests\npytest + coverage"]:::test
-    end
-
-    PAR --> BUILD["🐳 Docker Build\nBuildx + cache"]:::build
-    BUILD --> SCAN["🔐 Trivy Scan\nSARIF → GitHub Security"]:::trivy
-    SCAN --> DPUSH["🚀 Docker Push\nDockerHub :latest + :sha"]:::dpush
-    DPUSH --> GITOPS["🔄 GitOps Commit\nUpdate image tag\nin values.yaml"]:::gitops
-    GITOPS --> ARGO["🐙 ArgoCD\nauto-syncs AKS"]:::argo
-
-    classDef push fill:#1f2937,stroke:#6b7280,color:#f9fafb
-    classDef lint fill:#166534,stroke:#4ade80,color:#fff
-    classDef sast fill:#1e3a8a,stroke:#60a5fa,color:#fff
-    classDef sca fill:#0e7490,stroke:#22d3ee,color:#fff
-    classDef sec fill:#5b21b6,stroke:#a78bfa,color:#fff
-    classDef sbom fill:#0f766e,stroke:#2dd4bf,color:#fff
-    classDef test fill:#065f46,stroke:#34d399,color:#fff
-    classDef build fill:#1d4ed8,stroke:#93c5fd,color:#fff
-    classDef trivy fill:#991b1b,stroke:#fca5a5,color:#fff
-    classDef dpush fill:#0369a1,stroke:#7dd3fc,color:#fff
-    classDef gitops fill:#7c2d12,stroke:#fb923c,color:#fff
-    classDef argo fill:#312e81,stroke:#a5b4fc,color:#fff
-```
-
-**Required GitHub secrets:**
-
-| Secret | Description |
-|--------|-------------|
-| `DOCKERHUB_USERNAME` | DockerHub username |
-| `DOCKERHUB_TOKEN` | DockerHub access token |
-| `SNYK_TOKEN` | Snyk auth token |
-
----
-
-## Production Deployment
-
-The app runs on **Azure Kubernetes Service** behind **Traefik** with automatic TLS.
-
-| Service | URL |
-|---------|-----|
-| CWE Explorer |   |
-| Grafana |   |
-| ArgoCD |   |
-| Prometheus | `kubectl port-forward svc/prometheus 9090` |
-| Loki | `kubectl port-forward svc/loki 3100` (or via Grafana Explore) |
-| Locust | `kubectl port-forward svc/locust 8089` |
-
-### Infrastructure (Terraform)
-
-```bash
-cd terraform/
-cp terraform.tfvars.example terraform.tfvars
-# Fill in your values
-terraform init
-terraform plan
-terraform apply
-```
-
-Provisions: AKS cluster, Azure Key Vault, Managed Identities (ESO + ExternalDNS), federated credentials, secrets (including Grafana admin password).
-
-### GitOps Flow
-
-1. Push to `main` → GitHub Actions runs CI, pushes Docker image, commits new tag to `helm/puresecure/values.yaml`
-2. ArgoCD detects the commit → syncs the Helm chart to AKS
-3. External Secrets Operator pulls secrets from Azure Key Vault into K8s Secrets
-4. New pods roll out with zero downtime
-
----
-
-## Development
-
-### Local Dev (without Docker)
-
-```bash
-python -m venv venv && source venv/bin/activate   # or venv\Scripts\activate on Windows
-pip install -r requirements.txt -r requirements-dev.txt
-
-export AZURE_TENANT_ID=your-tenant-id
-export AZURE_CLIENT_ID=your-client-id
-
-uvicorn backend.main:app --reload
-# → http://localhost:8000
-```
-
-### Running Tests
-
-```bash
-pytest -v --tb=short               # all tests
-pytest tests/test_security.py -v   # specific module
-pytest --cov=backend --cov-report=html # with coverage report
-```
-
-### Running Security Scans
-
-```bash
-bandit -r backend/ -ll      # SAST
-flake8 backend/ tests/      # lint
-gitleaks detect --source .  # secrets scan
-```
-
----
-
-## Data Sources
-
-| Source | Data | Update Frequency |
-|--------|------|-----------------|
-| [NIST NVD API 2.0](https://nvd.nist.gov/developers/vulnerabilities) | CVE details, CVSS scores, affected products | Cached 1h per CVE |
-| [MITRE CWE XML](https://cwe.mitre.org/data/downloads.html) | 969+ weakness definitions | Downloaded at startup |
-
----
-
-## Acknowledgements
-
-- **[NIST NVD](https://nvd.nist.gov/)** — National Vulnerability Database, source of all CVE data
-- **[MITRE CWE](https://cwe.mitre.org/)** — Common Weakness Enumeration definitions
-- **[FastAPI](https://fastapi.tiangolo.com/)** — Modern Python web framework
-- **[Prometheus](https://prometheus.io/)** + **[Grafana](https://grafana.com/)** — Observability stack
-- **[Alertmanager](https://prometheus.io/docs/alerting/latest/alertmanager/)** — Alert routing and delivery
-- **[Loki](https://grafana.com/oss/loki/)** + **[Promtail](https://grafana.com/docs/loki/latest/send-data/promtail/)** — Log aggregation stack
-- **[Locust](https://locust.io/)** — Load testing framework
-- **[ArgoCD](https://argoproj.github.io/cd/)** — GitOps continuous delivery
-- **[Microsoft Entra ID](https://learn.microsoft.com/en-us/entra/)** — Identity platform
-
----
-
-<div align="center">
-
-MIT License · Built by [Reon Britto](https://github.com/reonbritto)
-
-</div>
