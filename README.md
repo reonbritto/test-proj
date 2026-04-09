@@ -16,7 +16,7 @@ Search, browse, and analyse CVE and CWE vulnerability data.
 | SQL/Command injection | Inputs stripped of `;` `'` `"` and other metacharacters. No SQL database exists (Redis + in-memory). NVD API calls use parameterised requests |
 | CSRF protection | Auth uses stateless JWTs in the Authorization header, not cookies. API is GET only with `allow_credentials=False` |
 | Path traversal prevention | SPA fallback uses `os.path.realpath` with prefix check. Paths like `.env`, `.git`, `terraform/` return 404 |
-| CORS | Locked to `https://reondev.top`, GET only, no credentials |
+| CORS | Locked to application origin, GET only, no credentials |
 | Rate limiting | Traefik middleware, 100 avg / 200 burst per minute |
 | Security headers | HSTS (1 year, preload, subdomains), `upgrade-insecure-requests`, server banner stripped |
 | Security tests | 24+ tests for XSS payloads, SQL injection strings, format validation, Unicode bypass |
@@ -76,7 +76,7 @@ flowchart TD
 
     subgraph INTERNET[" "]
         direction LR
-        DNS["<b>Azure DNS</b><br/>reondev.top / grafana / argocd"]
+        DNS["<b>Azure DNS</b><br/>app / grafana / argocd"]
         ExtDNS["<b>ExternalDNS</b><br/><i>Auto A records</i>"]
         ExtDNS -.->|manage| DNS
     end
@@ -131,9 +131,9 @@ flowchart TD
         GL[("<b>GitLab</b><br/>QUB EEECS<br/>Source of truth")]
     end
 
-    Traefik -->|reondev.top| App
-    Traefik -->|grafana.reondev.top| Grafana
-    Traefik -->|argocd.reondev.top| ArgoCD
+    Traefik -->|app host| App
+    Traefik -->|grafana host| Grafana
+    Traefik -->|argocd host| ArgoCD
 
     App -->|/metrics| Prometheus
     Prometheus -->|scrape| NodeExp
@@ -410,7 +410,7 @@ Pulls from Loki. Promtail ships all pod logs. 120 hour retention, filterable by 
 | Key Vault | `kv-puresecure-prod` | 6 secrets, RBAC enabled, 90-day soft delete |
 | Managed Identity | `eso-identity` | Key Vault Secrets User role, federated to K8s SA |
 | Managed Identity | `externaldns-identity` | DNS Zone Contributor role, federated to K8s SA |
-| DNS Zone | `reondev.top` | Pre-existing (data source), used by ExternalDNS |
+| DNS Zone | Custom domain | Pre-existing (data source), used by ExternalDNS |
 
 ---
 
