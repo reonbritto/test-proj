@@ -30,10 +30,11 @@ spec:
       style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
       font-src 'self' https://fonts.gstatic.com data:;
       img-src 'self' data: blob:;
-      connect-src 'self';
+      connect-src 'self' https://login.microsoftonline.com https://*.microsoftonline.com https://login.live.com https://graph.microsoft.com;
+      frame-src https://login.microsoftonline.com https://*.microsoftonline.com https://login.live.com;
       frame-ancestors 'none';
       base-uri 'self';
-      form-action 'self';
+      form-action 'self' https://login.microsoftonline.com https://*.microsoftonline.com https://login.live.com;
       object-src 'none';
       upgrade-insecure-requests
     customResponseHeaders:
