@@ -7,6 +7,12 @@ metadata:
     {{- include "puresecure.app.labels" . | nindent 4 }}
 spec:
   replicas: {{ .Values.app.replicas }}
+  # Recreate (not RollingUpdate) because cwe-data-pvc is ReadWriteOnce and a
+  # single PVC can't be attached to two pods at once. RollingUpdate would
+  # deadlock: new pod stuck ContainerCreating waiting for the volume, old pod
+  # never terminates because new pod isn't Ready.
+  strategy:
+    type: Recreate
   selector:
     matchLabels:
       {{- include "puresecure.app.selectorLabels" . | nindent 6 }}

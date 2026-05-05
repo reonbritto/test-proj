@@ -50,7 +50,7 @@ spec:
     - match: Host(`{{ .Values.ingress.hosts.grafana }}`)
       kind: Rule
       middlewares:
-        - name: security-headers
+        - name: grafana-security-headers
       services:
         - name: grafana
           port: {{ .Values.grafana.port }}
