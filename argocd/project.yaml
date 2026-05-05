@@ -8,7 +8,7 @@ metadata:
 spec:
   description: PureSecure CWE Explorer Project
   sourceRepos:
-    - https://github.com/reonbritto/test-proj.git
+    - https://github.com/reonbritto/cwe-explorer.git
   destinations:
     - namespace: puresecure
       server: https://kubernetes.default.svc

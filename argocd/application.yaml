@@ -8,7 +8,7 @@ metadata:
 spec:
   project: puresecure
   source:
-    repoURL: https://github.com/reonbritto/test-proj.git
+    repoURL: https://github.com/reonbritto/cwe-explorer.git
     targetRevision: main
     path: helm/puresecure
     helm:
@@ -17,6 +17,14 @@ spec:
   destination:
     server: https://kubernetes.default.svc
     namespace: puresecure
+  # Ignore fields the ExternalSecrets controller defaults server-side.
+  # Without this, ArgoCD reports OutOfSync because nullBytePolicy is added
+  # to every remoteRef even though we don't set it in the chart.
+  ignoreDifferences:
+    - group: external-secrets.io
+      kind: ExternalSecret
+      jsonPointers:
+        - /spec/data
   syncPolicy:
     automated:
       prune: true
