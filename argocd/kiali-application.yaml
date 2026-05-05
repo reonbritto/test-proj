@@ -1,0 +1,32 @@
+# ─────────────────────────────────────────────────────────
+#  ArgoCD Application — Kiali (Istio service-graph console)
+# ─────────────────────────────────────────────────────────
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: kiali
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: puresecure
+  source:
+    repoURL: https://github.com/reonbritto/cwe-explorer.git
+    targetRevision: main
+    path: helm/kiali
+    helm:
+      valueFiles:
+        - values.yaml
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: istio-system
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=false   # istio-system already exists
+      - ServerSideApply=true
+    retry:
+      limit: 3
+      backoff: { duration: 5s, factor: 2, maxDuration: 3m }

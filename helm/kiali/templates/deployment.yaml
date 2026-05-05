@@ -1,0 +1,77 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kiali
+  namespace: {{ .Values.namespace }}
+  labels:
+    app: kiali
+    app.kubernetes.io/name: kiali
+spec:
+  replicas: {{ .Values.kiali.replicas }}
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+    type: RollingUpdate
+  selector:
+    matchLabels:
+      app: kiali
+  template:
+    metadata:
+      labels:
+        app: kiali
+        app.kubernetes.io/name: kiali
+      annotations:
+        # Don't put Kiali in the mesh — it's an observability tool that
+        # talks to istiod and Prometheus directly.
+        sidecar.istio.io/inject: "false"
+        # Roll on config change.
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+    spec:
+      serviceAccountName: kiali
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
+      containers:
+        - name: kiali
+          image: {{ .Values.kiali.image }}
+          imagePullPolicy: IfNotPresent
+          command:
+            - /opt/kiali/kiali
+            - -config
+            - /kiali-configuration/config.yaml
+          ports:
+            - { name: api-http, containerPort: {{ .Values.kiali.port }}, protocol: TCP }
+          env:
+            - { name: ACTIVE_NAMESPACE,    valueFrom: { fieldRef: { fieldPath: metadata.namespace } } }
+            - { name: LOG_LEVEL,           value: "info" }
+            - { name: LOG_FORMAT,          value: "text" }
+            - { name: LOG_TIME_FIELD_FORMAT, value: "2006-01-02T15:04:05Z07:00" }
+          volumeMounts:
+            - { name: config,              mountPath: /kiali-configuration }
+            - { name: kiali-cabundle,      mountPath: /kiali-cabundle }
+          resources:
+            {{- toYaml .Values.kiali.resources | nindent 12 }}
+          readinessProbe:
+            httpGet: { path: /kiali/healthz, port: api-http, scheme: HTTP }
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          livenessProbe:
+            httpGet: { path: /kiali/healthz, port: api-http, scheme: HTTP }
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 5
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: [ALL] }
+      volumes:
+        - name: config
+          configMap:
+            name: kiali
+        - name: kiali-cabundle
+          emptyDir: {}

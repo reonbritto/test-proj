@@ -30,6 +30,14 @@ mesh:
   # Drop to 1-10 for production.
   tracingSamplingPercent: 100
 
+# ─── Tracing backend ─────────────────────────────────────
+# OpenObserve replaces Zipkin. The IstioOperator must be installed
+# with an OpenTelemetry extension provider pointing at the URL +
+# basic-auth header below — see docs/openobserve-setup.md for the
+# exact istioctl command.
+tracing:
+  backend: openobserve   # informational; actual config lives in IstioOperator
+
 # ─── Workloads to mesh (sidecar injection) ───────────────
 # Used by the puresecure chart's Deployment templates to add
 # the inject annotation. Keep this list short — heavier components

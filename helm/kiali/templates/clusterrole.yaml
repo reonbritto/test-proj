@@ -1,0 +1,66 @@
+# Cluster-scoped read access for Kiali — needs to inspect every namespace
+# that has Istio workloads, plus all the Istio CRDs.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kiali
+  labels:
+    app: kiali
+    app.kubernetes.io/name: kiali
+rules:
+  # Core resources Kiali walks
+  - apiGroups: [""]
+    resources:
+      - configmaps
+      - endpoints
+      - pods
+      - pods/log
+      - replicationcontrollers
+      - services
+      - namespaces
+      - nodes
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["apps"]
+    resources: [deployments, replicasets, statefulsets, daemonsets]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["batch"]
+    resources: [cronjobs, jobs]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["autoscaling"]
+    resources: [horizontalpodautoscalers]
+    verbs: ["get", "list", "watch"]
+
+  # Every Istio CRD group Kiali understands. "*" inside the group is fine
+  # because Kiali only ever reads.
+  - apiGroups: ["networking.istio.io", "security.istio.io", "telemetry.istio.io",
+                "extensions.istio.io", "install.istio.io"]
+    resources: ["*"]
+    verbs: ["get", "list", "watch"]
+
+  # Gateway API (Kiali shows these too if present)
+  - apiGroups: ["gateway.networking.k8s.io"]
+    resources: ["*"]
+    verbs: ["get", "list", "watch"]
+
+  # Project metadata (used in the UI only)
+  - apiGroups: ["authentication.k8s.io"]
+    resources: [tokenreviews]
+    verbs: ["create"]
+  - apiGroups: ["authorization.k8s.io"]
+    resources: [selfsubjectaccessreviews, subjectaccessreviews]
+    verbs: ["create"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: kiali
+  labels:
+    app: kiali
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: kiali
+subjects:
+  - kind: ServiceAccount
+    name: kiali
+    namespace: {{ .Values.namespace }}

@@ -249,6 +249,7 @@ ingress:
   hosts:
     app: reondev.top
     grafana: grafana.reondev.top
+    kiali: kiali.reondev.top
   tlsSecretName: reondev-top-tls
   rateLimit:
     average: 100

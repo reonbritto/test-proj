@@ -1,0 +1,59 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kiali
+  namespace: {{ .Values.namespace }}
+  labels:
+    app: kiali
+    app.kubernetes.io/name: kiali
+data:
+  config.yaml: |
+    # ── Identity ──────────────────────────────────────────
+    istio_namespace: {{ .Values.namespace }}
+    deployment:
+      view_only_mode: false       # allow Apply/Delete from the UI
+      # We expose Kiali behind Traefik at https://kiali.reondev.top
+      # so the UI links resolve correctly.
+      ingress:
+        enabled: false            # IngressRoute lives in puresecure chart, not here
+
+    # ── Authentication ────────────────────────────────────
+    auth:
+      strategy: {{ .Values.auth.strategy }}
+
+    # ── Where data comes from ─────────────────────────────
+    external_services:
+      prometheus:
+        url: {{ .Values.externalServices.prometheus.url | quote }}
+      grafana:
+        enabled: true
+        # Internal URL — used by Kiali to call Grafana API for dashboard URLs
+        internal_url: "http://grafana.puresecure.svc.cluster.local:3000"
+        # External URL — what the user's browser will open when they
+        # click a Grafana link from Kiali
+        external_url: "https://grafana.reondev.top"
+      tracing:
+        enabled: true
+        # OpenObserve speaks Zipkin's query API at /api/<org>/zipkin
+        # Note: Kiali expects Zipkin/Jaeger query semantics; OO compat is
+        # partial. If the Traces tab in Kiali is empty, fall back to using
+        # the OpenObserve UI directly for trace search.
+        provider: zipkin
+        internal_url: "http://openobserve.openobserve.svc.cluster.local:5080/api/puresecure/zipkin"
+        external_url: "https://openobserve.reondev.top"
+      istio:
+        root_namespace: {{ .Values.externalServices.istio.rootNamespace | quote }}
+
+    # ── Cluster identity ──────────────────────────────────
+    kiali_feature_flags:
+      disabled_features: []
+    kubernetes_config:
+      cache_token_namespace_duration: 10
+      cluster_name: {{ .Values.cluster.name | quote }}
+
+    # ── Server runtime ────────────────────────────────────
+    server:
+      port: {{ .Values.kiali.port }}
+      web_root: /
+      # Disabled — Kiali can otherwise show a banner in iframes
+      cors_allow_all: false

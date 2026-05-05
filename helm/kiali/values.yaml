@@ -1,0 +1,35 @@
+# ─────────────────────────────────────────────────────────
+#  Kiali — values
+# ─────────────────────────────────────────────────────────
+# Service-graph + mesh console for Istio. Reads from:
+#   - Prometheus (metrics)               → in-namespace Service
+#   - Jaeger/Zipkin/OTLP-compat (traces) → optional
+#   - Kubernetes API                     → ClusterRole below
+# ─────────────────────────────────────────────────────────
+
+namespace: istio-system   # Kiali lives next to istiod by convention
+
+kiali:
+  image: quay.io/kiali/kiali:v1.85
+  replicas: 1
+  port: 20001
+  resources:
+    requests: { cpu: 100m, memory: 192Mi }
+    limits:   { cpu: 500m, memory: 512Mi }
+
+# Where Kiali reads its data
+externalServices:
+  prometheus:
+    url: "http://prometheus.puresecure.svc.cluster.local:9090"
+  istio:
+    rootNamespace: istio-system
+
+# Auth — for a personal/coursework cluster, anonymous is fine.
+# Production: switch to "openid" or "header" with a real IdP.
+auth:
+  strategy: anonymous
+
+# Cluster identity (shown in the UI; no other effect)
+cluster:
+  name: aks-puresecure
+  network: default

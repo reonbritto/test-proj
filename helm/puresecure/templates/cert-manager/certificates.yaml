@@ -11,3 +11,6 @@ spec:
   dnsNames:
     - {{ .Values.ingress.hosts.app }}
     - {{ .Values.ingress.hosts.grafana }}
+    {{- with .Values.ingress.hosts.kiali }}
+    - {{ . }}
+    {{- end }}
