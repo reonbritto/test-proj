@@ -16,6 +16,9 @@ data:
     # Local Prometheus storage stays the source of truth for alerting
     # and Grafana panels; OpenObserve gets the same data for its own UI.
     remote_write:
+      # OpenObserve's Prometheus remote_write endpoint is namespaced
+      # under /api/<org>/prometheus/api/v1/write — no leading underscore
+      # here (only the Loki-compat path needs it).
       - url: http://openobserve.openobserve.svc.cluster.local:5080/api/puresecure/prometheus/api/v1/write
         basic_auth:
           username: admin@reondev.top
