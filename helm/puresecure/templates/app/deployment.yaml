@@ -25,13 +25,10 @@ spec:
         # namespace-wide injection because Prometheus/Grafana/Loki/etc.
         # don't need to be meshed and pay a 50 MiB/pod overhead).
         sidecar.istio.io/inject: "true"
-        # Where this workload sends spans (matches the "zipkin" provider
-        # registered on the IstioOperator at install time).
-        proxy.istio.io/config: |
-          tracing:
-            sampling: 100
-            zipkin:
-              address: zipkin.istio-system:9411
+        # Tracing destination is set by the namespace-level Telemetry
+        # resource (helm/istio-mesh/templates/telemetry.yaml) which
+        # references the "openobserve" provider registered on the
+        # IstioOperator. No per-pod proxy.istio.io/config needed.
     spec:
       securityContext:
         runAsNonRoot: {{ .Values.app.securityContext.runAsNonRoot }}

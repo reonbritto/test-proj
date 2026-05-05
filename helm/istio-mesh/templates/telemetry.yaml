@@ -14,10 +14,9 @@ metadata:
   namespace: {{ .Values.global.appNamespace }}
 spec:
   tracing:
-    # Both provider names below must already be registered on the
-    # IstioOperator meshConfig (re-run istioctl install with both
-    # extensionProviders flags — see docs/openobserve-setup.md).
+    # OpenObserve is the sole tracing backend (Zipkin retired).
+    # The provider name below must be registered on the IstioOperator
+    # meshConfig — see docs/openobserve-setup.md for the istioctl flags.
     - providers:
-        - name: zipkin
         - name: openobserve
       randomSamplingPercentage: {{ .Values.mesh.tracingSamplingPercent }}

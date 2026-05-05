@@ -12,22 +12,12 @@ global:
   appNamespace: puresecure   # the namespace whose workloads are meshed
   istioNamespace: istio-system
 
-# ─── Zipkin (tracing backend) ────────────────────────────
+# ─── Zipkin (RETIRED) ────────────────────────────────────
+# Tracing now goes exclusively to OpenObserve (helm/openobserve chart).
+# Keeping the toggle for emergency rollback — flip enabled: true and
+# re-add the zipkin provider in templates/telemetry.yaml.
 zipkin:
-  enabled: true
-  image: openzipkin/zipkin:3.4
-  replicas: 1
-  port: 9411
-  resources:
-    requests:
-      cpu: 100m
-      memory: 256Mi
-    limits:
-      cpu: 500m
-      memory: 1Gi
-  # Storage is in-memory (resets on pod restart).
-  # For persistence, swap to openzipkin/zipkin with STORAGE_TYPE=elasticsearch.
-  storageType: mem
+  enabled: false
 
 # ─── Mesh policy ─────────────────────────────────────────
 mesh:
