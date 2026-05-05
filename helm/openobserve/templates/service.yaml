@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: openobserve
+  namespace: {{ .Values.namespace }}
+  labels:
+    app.kubernetes.io/name: openobserve
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: openobserve
+  ports:
+    - { name: http, port: {{ .Values.openobserve.port }},     targetPort: http, protocol: TCP }
+    - { name: grpc, port: {{ .Values.openobserve.grpcPort }}, targetPort: grpc, protocol: TCP }

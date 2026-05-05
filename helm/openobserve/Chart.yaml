@@ -1,0 +1,14 @@
+apiVersion: v2
+name: openobserve
+description: OpenObserve — unified logs/metrics/traces, additive to Loki+Prom+Zipkin
+type: application
+version: 0.1.0
+appVersion: "0.13.0"
+maintainers:
+  - name: PureSecure Team
+keywords:
+  - openobserve
+  - tracing
+  - logging
+  - metrics
+  - observability

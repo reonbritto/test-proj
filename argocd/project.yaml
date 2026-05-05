@@ -14,6 +14,8 @@ spec:
       server: https://kubernetes.default.svc
     - namespace: istio-system
       server: https://kubernetes.default.svc
+    - namespace: openobserve
+      server: https://kubernetes.default.svc
   # Allow cluster-scoped resources needed by cert-manager
   clusterResourceWhitelist:
     - group: cert-manager.io

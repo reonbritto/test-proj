@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: openobserve-data
+  namespace: {{ .Values.namespace }}
+  labels:
+    app.kubernetes.io/name: openobserve
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: {{ .Values.openobserve.storage.storageClass }}
+  resources:
+    requests:
+      storage: {{ .Values.openobserve.storage.size }}

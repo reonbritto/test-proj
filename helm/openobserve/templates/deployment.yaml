@@ -1,0 +1,73 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: openobserve
+  namespace: {{ .Values.namespace }}
+  labels:
+    app.kubernetes.io/name: openobserve
+spec:
+  replicas: {{ .Values.openobserve.replicas }}
+  # Single-node + RWO PVC: same constraint as our app — Recreate, not RollingUpdate.
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: openobserve
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: openobserve
+      annotations:
+        # Don't put the observability backend in the mesh —
+        # avoids self-trace amplification and keeps ingest paths simple.
+        sidecar.istio.io/inject: "false"
+        # Roll the pod when bootstrap creds change.
+        checksum/secret: {{ include (print $.Template.BasePath "/secret.yaml") . | sha256sum }}
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10000
+        fsGroup: 10000
+      containers:
+        - name: openobserve
+          image: {{ .Values.openobserve.image }}
+          imagePullPolicy: IfNotPresent
+          ports:
+            - { name: http,  containerPort: {{ .Values.openobserve.port }},     protocol: TCP }
+            - { name: grpc,  containerPort: {{ .Values.openobserve.grpcPort }}, protocol: TCP }
+          env:
+            # Bootstrap admin user (read from Secret)
+            - name: ZO_ROOT_USER_EMAIL
+              valueFrom: { secretKeyRef: { name: openobserve-bootstrap, key: ZO_ROOT_USER_EMAIL } }
+            - name: ZO_ROOT_USER_PASSWORD
+              valueFrom: { secretKeyRef: { name: openobserve-bootstrap, key: ZO_ROOT_USER_PASSWORD } }
+            # Single-node mode + local disk
+            - { name: ZO_DATA_DIR,  value: /data }
+            - { name: ZO_HTTP_PORT, value: {{ .Values.openobserve.port | quote }} }
+            - { name: ZO_GRPC_PORT, value: {{ .Values.openobserve.grpcPort | quote }} }
+            # Make the UI usable behind a future ingress (no auth-bypass for the API)
+            - { name: ZO_TELEMETRY, value: "false" }
+          volumeMounts:
+            - { name: data, mountPath: /data }
+          resources:
+            {{- toYaml .Values.openobserve.resources | nindent 12 }}
+          readinessProbe:
+            httpGet: { path: /healthz, port: http }
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 6
+          livenessProbe:
+            httpGet: { path: /healthz, port: http }
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 5
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: false
+            capabilities: { drop: [ALL] }
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: openobserve-data

@@ -15,7 +15,17 @@ data:
       filename: /run/promtail/positions.yaml
 
     clients:
+      # Primary: Loki (existing)
       - url: http://loki:{{ .Values.loki.port }}/loki/api/v1/push
+      # Additive: OpenObserve. It speaks the Loki push API under
+      # /api/<organization>/loki/api/v1/push and accepts basic-auth
+      # with the same credentials you use to log into the UI.
+      # The org name "puresecure" matches openobserve.organization in
+      # helm/openobserve/values.yaml.
+      - url: http://openobserve.openobserve.svc.cluster.local:5080/api/puresecure/loki/api/v1/push
+        basic_auth:
+          username: admin@reondev.top
+          password: ChangeMe123!
 
     scrape_configs:
       - job_name: kubernetes-pods

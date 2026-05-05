@@ -1,0 +1,51 @@
+# ─────────────────────────────────────────────────────────
+#  OpenObserve — values
+# ─────────────────────────────────────────────────────────
+# This is an *additive* observability backend. Loki, Prometheus,
+# Zipkin, Grafana and Alertmanager keep running unchanged.
+# OpenObserve receives a duplicate stream of traces, logs and
+# metrics so you can compare UIs and decide later whether to
+# retire any of the upstream backends.
+# ─────────────────────────────────────────────────────────
+
+namespace: openobserve
+
+# ─── OpenObserve binary ──────────────────────────────────
+openobserve:
+  image: public.ecr.aws/zinclabs/openobserve:v0.13.0
+  replicas: 1
+
+  # HTTP endpoint — UI + ingest API
+  port: 5080
+  # gRPC endpoint — used by OTLP gRPC ingest
+  grpcPort: 5081
+
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+
+  # Local-disk storage for Parquet files (single-node mode).
+  # Production track: switch to S3/Azure-Blob via env vars + remove PVC.
+  storage:
+    size: 5Gi
+    storageClass: managed-csi
+
+  # The default tenant in OpenObserve. Both ingest and query
+  # endpoints are namespaced under /api/<organization>/.
+  organization: puresecure
+
+  # Bootstrap admin user. The password lands in a chart-managed Secret.
+  # Override AT INSTALL by editing values.yaml; for production move this
+  # into Azure Key Vault and stream via ESO (mirror the app-secrets pattern).
+  rootUser:
+    email: admin@reondev.top
+    password: ChangeMe123!
+
+# ─── Ingress (optional — exposes the UI at openobserve.<host>) ──
+ingress:
+  enabled: false   # flip to true after a Certificate dnsName is added
+  host: openobserve.reondev.top
