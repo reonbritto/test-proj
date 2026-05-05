@@ -21,13 +21,13 @@ secretConfiguration:
 # The Client ID of the User-Assigned Managed Identity with "DNS Zone Contributor" role
 env:
   - name: AZURE_CLIENT_ID
-    value: "342a5dce-315b-4c59-9dfb-5ac91d32588b"
+    value: "cd42e120-cd9e-4b78-87e3-ee719c07c23c"
 
 serviceAccount:
   create: true
   name: external-dns-sa
   annotations:
-    azure.workload.identity/client-id: "342a5dce-315b-4c59-9dfb-5ac91d32588b"
+    azure.workload.identity/client-id: "cd42e120-cd9e-4b78-87e3-ee719c07c23c"
 
 podLabels:
   azure.workload.identity/use: "true"
