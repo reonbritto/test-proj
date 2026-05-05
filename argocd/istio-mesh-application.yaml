@@ -1,0 +1,46 @@
+# ─────────────────────────────────────────────────────────
+#  ArgoCD Application — istio-mesh
+#
+#  Manages Zipkin (in istio-system) plus per-namespace
+#  Istio policies (PeerAuthentication, Telemetry) for
+#  the puresecure workloads.
+#
+#  Prerequisite: Istio control plane must already be
+#  installed via `istioctl install` (see docs/istio-setup.md).
+#  ArgoCD does NOT install the control plane itself.
+# ─────────────────────────────────────────────────────────
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: istio-mesh
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: puresecure
+  source:
+    repoURL: https://github.com/reonbritto/cwe-explorer.git
+    targetRevision: main
+    path: helm/istio-mesh
+    helm:
+      valueFiles:
+        - values.yaml
+  destination:
+    server: https://kubernetes.default.svc
+    # Note: Zipkin lives in istio-system, but ArgoCD honours the
+    # namespace stamped on each manifest, not this destination.
+    # The destination here is the "default" for unscoped resources.
+    namespace: istio-system
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=false   # istio-system is created by istioctl
+      - ServerSideApply=true
+    retry:
+      limit: 3
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m

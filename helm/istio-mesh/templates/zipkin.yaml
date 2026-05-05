@@ -1,0 +1,92 @@
+{{- if .Values.zipkin.enabled }}
+# ─────────────────────────────────────────────────────────
+#  Zipkin — distributed tracing backend for Istio sidecars
+#
+#  Sidecars send spans to zipkin.istio-system:9411 (configured
+#  on the IstioOperator at install time via meshConfig).
+# ─────────────────────────────────────────────────────────
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: zipkin
+  namespace: {{ .Values.global.istioNamespace }}
+  labels:
+    app: zipkin
+    app.kubernetes.io/name: zipkin
+    app.kubernetes.io/component: tracing
+    app.kubernetes.io/part-of: istio-mesh
+spec:
+  replicas: {{ .Values.zipkin.replicas }}
+  selector:
+    matchLabels:
+      app: zipkin
+  template:
+    metadata:
+      labels:
+        app: zipkin
+        app.kubernetes.io/name: zipkin
+        app.kubernetes.io/component: tracing
+      annotations:
+        # Zipkin itself is NOT in the mesh — avoid the chicken/egg
+        # of the tracing backend reporting traces about itself.
+        sidecar.istio.io/inject: "false"
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
+      containers:
+        - name: zipkin
+          image: {{ .Values.zipkin.image }}
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http-query
+              containerPort: {{ .Values.zipkin.port }}
+              protocol: TCP
+          env:
+            - name: STORAGE_TYPE
+              value: {{ .Values.zipkin.storageType | quote }}
+            - name: JAVA_OPTS
+              value: "-Xms256m -Xmx768m -XX:+ExitOnOutOfMemoryError"
+          resources:
+            {{- toYaml .Values.zipkin.resources | nindent 12 }}
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http-query
+            initialDelaySeconds: 15
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http-query
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 5
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: false
+            capabilities:
+              drop: ["ALL"]
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: zipkin
+  namespace: {{ .Values.global.istioNamespace }}
+  labels:
+    app: zipkin
+    app.kubernetes.io/name: zipkin
+spec:
+  type: ClusterIP
+  selector:
+    app: zipkin
+  ports:
+    - name: http-query
+      port: {{ .Values.zipkin.port }}
+      targetPort: http-query
+      protocol: TCP
+{{- end }}

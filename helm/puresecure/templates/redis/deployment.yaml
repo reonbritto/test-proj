@@ -15,6 +15,15 @@ spec:
     metadata:
       labels:
         {{- include "puresecure.redis.selectorLabels" . | nindent 8 }}
+      annotations:
+        # Inject Envoy sidecar so calls from web→redis are mTLS'd
+        # and traced. Without this, the trace stops at the app.
+        sidecar.istio.io/inject: "true"
+        proxy.istio.io/config: |
+          tracing:
+            sampling: 100
+            zipkin:
+              address: zipkin.istio-system:9411
     spec:
       containers:
         - name: redis

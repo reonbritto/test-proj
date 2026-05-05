@@ -19,8 +19,15 @@ _MIN_INTERVAL = 6.0  # ~5 requests per 30 seconds without API key
 
 async def _rate_limited_get(client: httpx.AsyncClient,
                             url: str,
-                            params: dict) -> httpx.Response:
-    """Make a rate-limited GET request to NVD API."""
+                            params: dict,
+                            trace_headers: Optional[dict] = None
+                            ) -> httpx.Response:
+    """Make a rate-limited GET request to NVD API.
+
+    trace_headers (optional): B3/W3C trace context to forward so the
+    NVD call appears as a child span of the inbound user request in
+    Zipkin. Pass request.state.trace_headers from the FastAPI handler.
+    """
     global _last_request_time
     now = asyncio.get_event_loop().time()
     elapsed = now - _last_request_time
@@ -28,6 +35,7 @@ async def _rate_limited_get(client: httpx.AsyncClient,
         await asyncio.sleep(_MIN_INTERVAL - elapsed)
 
     response = await client.get(url, params=params,
+                                headers=trace_headers or None,
                                 timeout=REQUEST_TIMEOUT)
     _last_request_time = asyncio.get_event_loop().time()
     return response

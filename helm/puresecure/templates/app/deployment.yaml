@@ -20,6 +20,18 @@ spec:
     metadata:
       labels:
         {{- include "puresecure.app.labels" . | nindent 8 }}
+      annotations:
+        # Inject Envoy sidecar — opt-in per workload (we don't enable
+        # namespace-wide injection because Prometheus/Grafana/Loki/etc.
+        # don't need to be meshed and pay a 50 MiB/pod overhead).
+        sidecar.istio.io/inject: "true"
+        # Where this workload sends spans (matches the "zipkin" provider
+        # registered on the IstioOperator at install time).
+        proxy.istio.io/config: |
+          tracing:
+            sampling: 100
+            zipkin:
+              address: zipkin.istio-system:9411
     spec:
       securityContext:
         runAsNonRoot: {{ .Values.app.securityContext.runAsNonRoot }}

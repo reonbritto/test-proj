@@ -1,0 +1,18 @@
+# ─────────────────────────────────────────────────────────
+#  PeerAuthentication — controls in-mesh mTLS for puresecure
+#
+#  PERMISSIVE: meshed pods accept BOTH mTLS (from other meshed
+#  pods) and plain HTTP (from kubelet probes, Traefik, etc.).
+#
+#  Once every caller of `web` is meshed (or routed through an
+#  Istio Gateway), flip mtlsMode to STRICT and remove the
+#  exception below.
+# ─────────────────────────────────────────────────────────
+apiVersion: security.istio.io/v1
+kind: PeerAuthentication
+metadata:
+  name: default
+  namespace: {{ .Values.global.appNamespace }}
+spec:
+  mtls:
+    mode: {{ .Values.mesh.mtlsMode }}

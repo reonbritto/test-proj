@@ -94,6 +94,35 @@ app.add_middleware(
 app.add_middleware(PrometheusMiddleware)
 
 
+# -- Distributed-trace header propagation ------------------------------
+# Istio sidecars inject these on incoming requests. We capture them on
+# request.state so outbound HTTP clients (httpx in nvd_client) can copy
+# them onto downstream calls — without this, every call to NVD shows up
+# as an orphan root span in Zipkin instead of a child of the user request.
+TRACE_HEADERS = (
+    "x-request-id",
+    "x-b3-traceid",
+    "x-b3-spanid",
+    "x-b3-parentspanid",
+    "x-b3-sampled",
+    "x-b3-flags",
+    "traceparent",
+    "tracestate",
+    "b3",
+)
+
+
+@app.middleware("http")
+async def capture_trace_headers(request: Request, call_next):
+    """Pin incoming trace headers to request.state for downstream calls."""
+    request.state.trace_headers = {
+        h: request.headers[h]
+        for h in TRACE_HEADERS
+        if h in request.headers
+    }
+    return await call_next(request)
+
+
 # -- Request logging ---------------------------------------------------
 
 

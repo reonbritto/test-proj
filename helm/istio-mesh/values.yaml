@@ -1,0 +1,49 @@
+# ─────────────────────────────────────────────────────────
+#  PureSecure Istio Mesh Add-ons — values
+# ─────────────────────────────────────────────────────────
+# Notes:
+#   - This chart does NOT install the Istio control plane.
+#     Run `istioctl install` first (see docs/istio-setup.md).
+#   - This chart only adds Zipkin + mesh policies for the
+#     puresecure namespace.
+# ─────────────────────────────────────────────────────────
+
+global:
+  appNamespace: puresecure   # the namespace whose workloads are meshed
+  istioNamespace: istio-system
+
+# ─── Zipkin (tracing backend) ────────────────────────────
+zipkin:
+  enabled: true
+  image: openzipkin/zipkin:3.4
+  replicas: 1
+  port: 9411
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 1Gi
+  # Storage is in-memory (resets on pod restart).
+  # For persistence, swap to openzipkin/zipkin with STORAGE_TYPE=elasticsearch.
+  storageType: mem
+
+# ─── Mesh policy ─────────────────────────────────────────
+mesh:
+  # PERMISSIVE keeps Traefik (outside-mesh) able to reach the
+  # web service on plain HTTP. Switch to STRICT only after you
+  # confirm every caller is meshed.
+  mtlsMode: PERMISSIVE
+
+  # Sample 100% of traces — fine for low-traffic dev/coursework.
+  # Drop to 1-10 for production.
+  tracingSamplingPercent: 100
+
+# ─── Workloads to mesh (sidecar injection) ───────────────
+# Used by the puresecure chart's Deployment templates to add
+# the inject annotation. Keep this list short — heavier components
+# (Prometheus, Loki, etc.) are NOT meshed by default.
+injectedWorkloads:
+  - cwe-explorer
+  - redis

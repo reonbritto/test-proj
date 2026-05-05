@@ -12,6 +12,8 @@ spec:
   destinations:
     - namespace: puresecure
       server: https://kubernetes.default.svc
+    - namespace: istio-system
+      server: https://kubernetes.default.svc
   # Allow cluster-scoped resources needed by cert-manager
   clusterResourceWhitelist:
     - group: cert-manager.io
@@ -38,3 +40,8 @@ spec:
       kind: SecretStore
     - group: external-secrets.io
       kind: ExternalSecret
+    # Istio CRDs (Zipkin Deployment/Service + mesh policies)
+    - group: security.istio.io
+      kind: PeerAuthentication
+    - group: telemetry.istio.io
+      kind: Telemetry

@@ -1,0 +1,20 @@
+# ─────────────────────────────────────────────────────────
+#  Telemetry — per-namespace tracing config
+#
+#  Tells every sidecar in the puresecure namespace to:
+#    1. Send spans to Zipkin in istio-system
+#    2. Sample at the configured percentage
+#  Lives at the namespace level so it overrides whatever
+#  default the IstioOperator was installed with.
+# ─────────────────────────────────────────────────────────
+apiVersion: telemetry.istio.io/v1
+kind: Telemetry
+metadata:
+  name: tracing-default
+  namespace: {{ .Values.global.appNamespace }}
+spec:
+  tracing:
+    - providers:
+        - name: zipkin       # must match the provider name registered
+                             # in the IstioOperator meshConfig
+      randomSamplingPercentage: {{ .Values.mesh.tracingSamplingPercent }}
