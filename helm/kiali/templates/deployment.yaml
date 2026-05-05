@@ -54,13 +54,13 @@ spec:
           resources:
             {{- toYaml .Values.kiali.resources | nindent 12 }}
           readinessProbe:
-            httpGet: { path: /kiali/healthz, port: api-http, scheme: HTTP }
+            httpGet: { path: /healthz, port: api-http, scheme: HTTP }
             initialDelaySeconds: 5
             periodSeconds: 10
             timeoutSeconds: 5
             failureThreshold: 3
           livenessProbe:
-            httpGet: { path: /kiali/healthz, port: api-http, scheme: HTTP }
+            httpGet: { path: /healthz, port: api-http, scheme: HTTP }
             initialDelaySeconds: 30
             periodSeconds: 30
             timeoutSeconds: 5
