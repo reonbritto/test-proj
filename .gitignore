@@ -65,3 +65,4 @@ alertmanager-data/
 /todo.md
 /DEPLOYMENT.md
 /terraform/.terraform.lock.hcl
+/README-no-images.md
