@@ -33,17 +33,13 @@ data:
         # click a Grafana link from Kiali
         external_url: "https://grafana.reondev.top"
       tracing:
-        enabled: true
-        # Kiali v1.85 dropped Zipkin as a valid provider type. Valid
-        # values are: jaeger | tempo | grafana. OpenObserve exposes a
-        # Jaeger-compatible query endpoint at /api/<org>/ — using
-        # 'jaeger' here is correct even though spans were ingested via
-        # OTLP. If the in-Kiali Traces tab stays empty, the OO Jaeger
-        # compat may not be 1:1 — use the OpenObserve UI directly for
-        # trace search and treat Kiali's Traces tab as best-effort.
-        provider: jaeger
-        internal_url: "http://openobserve.openobserve.svc.cluster.local:5080"
-        external_url: "https://openobserve.reondev.top"
+        # Disabled — Kiali v1.85 expects a Jaeger query API at
+        # http://tracing.istio-system:16686 (or similar) and OpenObserve's
+        # compat surface doesn't satisfy that interface cleanly. Trace
+        # search lives in the OpenObserve UI; Kiali workload pages will
+        # not have a Traces tab. Re-enable when you add a real Jaeger
+        # query gateway in front of OO.
+        enabled: false
       istio:
         root_namespace: {{ .Values.externalServices.istio.rootNamespace | quote }}
 
