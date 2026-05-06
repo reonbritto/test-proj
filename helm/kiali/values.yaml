@@ -29,9 +29,12 @@ externalServices:
 auth:
   strategy: anonymous
 
-# Cluster identity (shown in the UI; no other effect)
+# Cluster identity — must match the cluster name Istio sidecars stamp
+# on metrics. Default install reports "Kubernetes" in destination_cluster.
+# Override on istioctl install with `--set values.global.multiCluster.clusterName=...`
+# if you want a custom name. We use the default so Kiali queries match.
 cluster:
-  name: aks-puresecure
+  name: Kubernetes
   network: default
 
 # ─── Public ingress (optional) ───────────────────────────
