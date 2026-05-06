@@ -27,11 +27,15 @@ data:
         url: {{ .Values.externalServices.prometheus.url | quote }}
       grafana:
         enabled: true
-        # Internal URL — used by Kiali to call Grafana API for dashboard URLs
-        internal_url: "http://grafana.puresecure.svc.cluster.local:3000"
-        # External URL — what the user's browser will open when they
-        # click a Grafana link from Kiali
+        # Kiali v1.85: 'url' is the single field for the Grafana endpoint
+        # Kiali itself queries (internal). 'external_url' is what gets
+        # opened in the user's browser when they click a Grafana link.
+        url: "http://grafana.puresecure.svc.cluster.local:3000"
         external_url: "https://grafana.reondev.top"
+        # Grafana login uses the admin password from app-secrets (synced
+        # from Azure Key Vault). Kiali is read-only against Grafana, so
+        # no auth block is required for the dashboard-URL lookup.
+        in_cluster_url: "http://grafana.puresecure.svc.cluster.local:3000"
       tracing:
         # Disabled — Kiali v1.85 expects a Jaeger query API at
         # http://tracing.istio-system:16686 (or similar) and OpenObserve's
