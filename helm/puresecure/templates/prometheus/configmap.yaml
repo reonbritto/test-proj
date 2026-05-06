@@ -87,23 +87,35 @@ data:
               environment: "production"
 
       # ─── Istio data-plane (Envoy sidecars) ─────────────────────
-      # Discovers every pod that has an istio-proxy sidecar and scrapes
-      # its /stats/prometheus endpoint on port 15090. This is the source
-      # of istio_requests_total / istio_request_duration_milliseconds
-      # which Kiali needs to render the service graph.
+      # Source of istio_requests_total / istio_request_duration_milliseconds
+      # — what Kiali needs to render the service graph.
+      #
+      # Discovers every pod and rewrites the target to its istio-proxy
+      # metrics endpoint at :15090/stats/prometheus. We match on the
+      # presence of the istio-proxy container by checking the annotation
+      # the Istio mutating webhook adds (`sidecar.istio.io/status`),
+      # which is more reliable across Istio versions than matching on
+      # a port name.
       - job_name: "envoy-stats"
         metrics_path: /stats/prometheus
         kubernetes_sd_configs:
           - role: pod
         relabel_configs:
-          - source_labels: [__meta_kubernetes_pod_container_port_name]
+          # Keep only pods that have been sidecar-injected.
+          - source_labels: [__meta_kubernetes_pod_annotation_sidecar_istio_io_status]
             action: keep
-            regex: '.*-envoy-prom'
-          - source_labels: [__address__, __meta_kubernetes_pod_annotation_prometheus_io_port]
+            regex: ".+"
+          # Drop pods that aren't running.
+          - source_labels: [__meta_kubernetes_pod_phase]
+            action: keep
+            regex: Running
+          # Replace the target's port with 15090 (Envoy's metrics port).
+          - source_labels: [__address__]
             action: replace
-            regex: ([^:]+)(?::\d+)?;(\d+)
+            regex: ([^:]+)(?::\d+)?
             replacement: $1:15090
             target_label: __address__
+          # Surface useful pod labels into the metric.
           - action: labelmap
             regex: __meta_kubernetes_pod_label_(.+)
           - source_labels: [__meta_kubernetes_namespace]
