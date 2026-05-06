@@ -8,10 +8,7 @@ spec:
   entryPoints:
     - web
   routes:
-    - match: >-
-        Host(`{{ .Values.ingress.hosts.app }}`) ||
-        Host(`{{ .Values.ingress.hosts.grafana }}`)
-        {{- with .Values.ingress.hosts.kiali }} || Host(`{{ . }}`){{- end }}
+    - match: Host(`{{ .Values.ingress.hosts.app }}`) || Host(`{{ .Values.ingress.hosts.grafana }}`)
       kind: Rule
       middlewares:
         - name: redirect-https
@@ -40,34 +37,10 @@ spec:
   tls:
     secretName: {{ .Values.ingress.tlsSecretName }}
 ---
-{{- with .Values.ingress.hosts.kiali }}
-# -- Kiali: {{ . }} (HTTPS) — cross-namespace to istio-system.
-# REQUIRES Traefik installed with:
-#   --providers.kubernetescrd.allowCrossNamespace=true
-# If your Traefik install doesn't have that flag, this route returns 503.
-# Either patch Traefik (helm upgrade with the flag) OR access Kiali via:
-#   kubectl port-forward -n istio-system svc/kiali 20001:20001
-apiVersion: traefik.io/v1alpha1
-kind: IngressRoute
-metadata:
-  name: kiali-https
-  namespace: {{ $.Values.namespace }}
-spec:
-  entryPoints:
-    - websecure
-  routes:
-    - match: Host(`{{ . }}`)
-      kind: Rule
-      middlewares:
-        - name: grafana-security-headers   # same loose CSP — Kiali also uses inline scripts
-      services:
-        - name: kiali
-          namespace: istio-system
-          port: 20001
-  tls:
-    secretName: {{ $.Values.ingress.tlsSecretName }}
----
-{{- end }}
+# NOTE: The Kiali IngressRoute lives in the kiali chart (helm/kiali/),
+# co-located with the Kiali Service in istio-system. That avoids the
+# Traefik allowCrossNamespace requirement.
+
 # -- Grafana: {{ .Values.ingress.hosts.grafana }} (HTTPS)
 apiVersion: traefik.io/v1alpha1
 kind: IngressRoute

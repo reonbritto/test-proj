@@ -86,6 +86,42 @@ data:
             labels:
               environment: "production"
 
+      # ─── Istio data-plane (Envoy sidecars) ─────────────────────
+      # Discovers every pod that has an istio-proxy sidecar and scrapes
+      # its /stats/prometheus endpoint on port 15090. This is the source
+      # of istio_requests_total / istio_request_duration_milliseconds
+      # which Kiali needs to render the service graph.
+      - job_name: "envoy-stats"
+        metrics_path: /stats/prometheus
+        kubernetes_sd_configs:
+          - role: pod
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_pod_container_port_name]
+            action: keep
+            regex: '.*-envoy-prom'
+          - source_labels: [__address__, __meta_kubernetes_pod_annotation_prometheus_io_port]
+            action: replace
+            regex: ([^:]+)(?::\d+)?;(\d+)
+            replacement: $1:15090
+            target_label: __address__
+          - action: labelmap
+            regex: __meta_kubernetes_pod_label_(.+)
+          - source_labels: [__meta_kubernetes_namespace]
+            target_label: namespace
+          - source_labels: [__meta_kubernetes_pod_name]
+            target_label: pod_name
+
+      # ─── Istio control plane (istiod) ─────────────────────────
+      - job_name: "istiod"
+        kubernetes_sd_configs:
+          - role: endpoints
+            namespaces:
+              names: ["istio-system"]
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_service_name, __meta_kubernetes_endpoint_port_name]
+            action: keep
+            regex: 'istiod;http-monitoring'
+
   recording_rules.yml: |
     groups:
       - name: cwe_explorer_request_rates

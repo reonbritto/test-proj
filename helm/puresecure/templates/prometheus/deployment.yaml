@@ -21,6 +21,9 @@ spec:
       labels:
         {{- include "puresecure.prometheus.labels" . | nindent 8 }}
     spec:
+      # ServiceAccount with cluster-wide read so Prometheus can do
+      # Kubernetes service discovery (envoy-stats and istiod scrape jobs).
+      serviceAccountName: prometheus
       securityContext:
         fsGroup: {{ .Values.prometheus.securityContext.fsGroup }}
       initContainers:

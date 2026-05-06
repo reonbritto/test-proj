@@ -1,0 +1,115 @@
+{{- if .Values.ingress.enabled }}
+# ─────────────────────────────────────────────────────────
+#  Kiali Ingress — all in istio-system to avoid Traefik
+#  cross-namespace restrictions.
+# ─────────────────────────────────────────────────────────
+
+# 1. Certificate — cert-manager will issue and write the TLS Secret
+#    into istio-system (same namespace as the IngressRoute).
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ .Values.ingress.tlsSecretName }}
+  namespace: {{ .Values.namespace }}
+  labels:
+    app: kiali
+spec:
+  secretName: {{ .Values.ingress.tlsSecretName }}
+  issuerRef:
+    name: {{ .Values.ingress.certIssuerName }}
+    kind: ClusterIssuer
+  dnsNames:
+    - {{ .Values.ingress.host }}
+
+---
+# 2. Middleware — Kiali ships inline scripts/styles, so use the
+#    looser Grafana-style CSP. Defined here so it lives next to the
+#    IngressRoute in the same namespace.
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: kiali-security-headers
+  namespace: {{ .Values.namespace }}
+  labels:
+    app: kiali
+spec:
+  headers:
+    browserXssFilter: true
+    contentTypeNosniff: true
+    stsIncludeSubdomains: true
+    stsPreload: true
+    stsSeconds: 31536000
+    referrerPolicy: "strict-origin-when-cross-origin"
+    contentSecurityPolicy: >-
+      default-src 'self';
+      script-src 'self' 'unsafe-inline' 'unsafe-eval';
+      style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
+      font-src 'self' https://fonts.gstatic.com data:;
+      img-src 'self' data: blob:;
+      connect-src 'self';
+      frame-ancestors 'none';
+      base-uri 'self';
+      form-action 'self';
+      object-src 'none';
+      upgrade-insecure-requests
+    customResponseHeaders:
+      Server: ""
+
+---
+# 3. HTTP → HTTPS redirect for the Kiali host
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: kiali-redirect-https
+  namespace: {{ .Values.namespace }}
+  labels:
+    app: kiali
+spec:
+  redirectScheme:
+    scheme: https
+    permanent: true
+
+---
+# 4. IngressRoute on port 80 → permanent redirect to HTTPS
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: kiali-http-redirect
+  namespace: {{ .Values.namespace }}
+  labels:
+    app: kiali
+spec:
+  entryPoints:
+    - web
+  routes:
+    - match: Host(`{{ .Values.ingress.host }}`)
+      kind: Rule
+      middlewares:
+        - name: kiali-redirect-https
+      services:
+        - name: kiali
+          port: {{ .Values.kiali.port }}
+
+---
+# 5. IngressRoute on port 443 → Kiali Service
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: kiali-https
+  namespace: {{ .Values.namespace }}
+  labels:
+    app: kiali
+spec:
+  entryPoints:
+    - websecure
+  routes:
+    - match: Host(`{{ .Values.ingress.host }}`)
+      kind: Rule
+      middlewares:
+        - name: kiali-security-headers
+      services:
+        - name: kiali
+          port: {{ .Values.kiali.port }}
+  tls:
+    secretName: {{ .Values.ingress.tlsSecretName }}
+{{- end }}

@@ -33,3 +33,14 @@ auth:
 cluster:
   name: aks-puresecure
   network: default
+
+# ─── Public ingress (optional) ───────────────────────────
+# When enabled, this chart ships a Certificate, Middleware, and
+# IngressRoute all inside istio-system so Traefik routes the host
+# without needing allowCrossNamespace. ExternalDNS will create the
+# A record from the IngressRoute Host rule.
+ingress:
+  enabled: true
+  host: kiali.reondev.top
+  tlsSecretName: kiali-reondev-top-tls
+  certIssuerName: letsencrypt-prod   # must already exist as a ClusterIssuer

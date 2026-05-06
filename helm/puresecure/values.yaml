@@ -249,7 +249,8 @@ ingress:
   hosts:
     app: reondev.top
     grafana: grafana.reondev.top
-    kiali: kiali.reondev.top
+    # kiali host is owned by helm/kiali — its IngressRoute lives in
+    # istio-system to avoid Traefik allowCrossNamespace requirement.
   tlsSecretName: reondev-top-tls
   rateLimit:
     average: 100

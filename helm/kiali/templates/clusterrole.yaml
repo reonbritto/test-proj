@@ -20,6 +20,12 @@ rules:
       - namespaces
       - nodes
     verbs: ["get", "list", "watch"]
+
+  # Kiali queries istiod's debug endpoints via the kube-apiserver pod
+  # proxy. Needs `create` on pods/portforward to open the tunnel.
+  - apiGroups: [""]
+    resources: [pods/portforward]
+    verbs: ["create", "post"]
   - apiGroups: ["apps"]
     resources: [deployments, replicasets, statefulsets, daemonsets]
     verbs: ["get", "list", "watch"]
