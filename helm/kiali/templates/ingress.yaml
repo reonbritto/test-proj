@@ -22,9 +22,28 @@ spec:
     - {{ .Values.ingress.host }}
 
 ---
-# 2. Middleware — Kiali ships inline scripts/styles, so use the
-#    looser Grafana-style CSP. Defined here so it lives next to the
-#    IngressRoute in the same namespace.
+{{- if .Values.ingress.basicAuth.enabled }}
+# 2a. Basic-auth middleware — prompts for username/password at the
+#     Traefik layer. Reads the htpasswd-format Secret from auth-secret.yaml.
+#     Only authenticated requests are forwarded upstream to Kiali.
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: kiali-basic-auth
+  namespace: {{ .Values.namespace }}
+  labels:
+    app: kiali
+spec:
+  basicAuth:
+    secret: kiali-basic-auth
+    realm: "Kiali — PureSecure"
+    removeHeader: true   # don't forward the Authorization header to Kiali
+
+---
+{{- end }}
+# 2b. Security headers — Kiali ships inline scripts/styles, so use
+#     the looser Grafana-style CSP. Defined here so it lives next to
+#     the IngressRoute in the same namespace.
 apiVersion: traefik.io/v1alpha1
 kind: Middleware
 metadata:
@@ -106,6 +125,11 @@ spec:
     - match: Host(`{{ .Values.ingress.host }}`)
       kind: Rule
       middlewares:
+        # Order matters: auth runs first; only on success do we apply
+        # security headers and proxy to the backend.
+        {{- if .Values.ingress.basicAuth.enabled }}
+        - name: kiali-basic-auth
+        {{- end }}
         - name: kiali-security-headers
       services:
         - name: kiali

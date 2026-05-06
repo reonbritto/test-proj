@@ -47,3 +47,11 @@ ingress:
   host: kiali.reondev.top
   tlsSecretName: kiali-reondev-top-tls
   certIssuerName: letsencrypt-prod   # must already exist as a ClusterIssuer
+
+  # Edge-level basic auth via Traefik. Kiali itself stays on auth.strategy
+  # 'anonymous' — Traefik prompts for credentials and only forwards
+  # authenticated requests upstream.
+  basicAuth:
+    enabled: true
+    # admin / reon9535
+    htpasswd: 'admin:$2y$05$x2.0psKqlZVCMJKZOnLCZegt2WF.jeFN8VH.wg/Q.l9/be8RLzYlq'
